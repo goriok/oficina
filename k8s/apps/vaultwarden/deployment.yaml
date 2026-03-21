@@ -33,6 +33,23 @@ spec:
               value: "https://vault.goriok.com"
             - name: SIGNUPS_ALLOWED
               value: "false"
+            - name: SMTP_HOST
+              value: "smtp.resend.com"
+            - name: SMTP_PORT
+              value: "587"
+            - name: SMTP_SECURITY
+              value: "starttls"
+            - name: SMTP_FROM
+              value: "vault@goriok.com"
+            - name: SMTP_FROM_NAME
+              value: "Vaultwarden"
+            - name: SMTP_USERNAME
+              value: "resend"
+            - name: SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: vaultwarden-secret
+                  key: SMTP_PASSWORD
           volumeMounts:
             - name: data
               mountPath: /data
