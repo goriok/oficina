@@ -5,13 +5,9 @@ metadata:
   namespace: cloudflare-tunnel
 data:
   config.yaml: |
-    tunnel: SEU_TUNNEL_ID
+    tunnel: 8b7166a2-efbf-4c4a-86af-acd6ea54ee44
     credentials-file: /etc/cloudflared/creds/credentials.json
     ingress:
-      - hostname: app1.goriok.com
-        service: http://app1-service.apps.svc.cluster.local:80
-      - hostname: app2.goriok.com
-        service: http://app2-service.apps.svc.cluster.local:80
-      - hostname: vault.goriok.com
-        service: http://vaultwarden.vaultwarden.svc.cluster.local:80
+      - hostname: "*.goriok.com"
+        service: http://traefik.traefik.svc.cluster.local:80
       - service: http_status:404
