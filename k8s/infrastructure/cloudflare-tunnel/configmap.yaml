@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudflared-config
+  namespace: cloudflare-tunnel
+data:
+  config.yaml: |
+    tunnel: SEU_TUNNEL_ID
+    credentials-file: /etc/cloudflared/creds/credentials.json
+    ingress:
+      - hostname: app1.goriok.com
+        service: http://app1-service.apps.svc.cluster.local:80
+      - hostname: app2.goriok.com
+        service: http://app2-service.apps.svc.cluster.local:80
+      - hostname: vault.goriok.com
+        service: http://vaultwarden.vaultwarden.svc.cluster.local:80
+      - service: http_status:404
