@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: distill-rss
+  namespace: distill-rss
+  labels:
+    app: distill-rss
+spec:
+  rules:
+    - host: ai-rss.goriok.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: distill-rss
+                port:
+                  number: 80

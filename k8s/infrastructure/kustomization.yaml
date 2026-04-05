@@ -4,3 +4,4 @@ kind: Kustomization
 resources:
   - traefik/
   - cloudflare-tunnel/
+  - registry/

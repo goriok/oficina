@@ -1,0 +1,59 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: distill-rss-pipeline
+  namespace: distill-rss
+  labels:
+    app: distill-rss
+spec:
+  # Daily at 06:00 UTC — matches the original launchd schedule
+  schedule: "0 6 * * *"
+  # Never run two pipeline jobs in parallel (SQLite single-writer)
+  concurrencyPolicy: Forbid
+  # Keep last 3 successful and 1 failed job log for debugging
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      # Retry up to 2 times before marking as failed
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: distill-rss
+            role: pipeline
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: distill-rss-pipeline
+              image: registry.registry.svc.cluster.local:5000/distill-rss:latest
+              # Override CMD: run the daily pipeline instead of serving
+              command: ["distill", "run", "--incremental"]
+              envFrom:
+                - configMapRef:
+                    name: distill-rss-config
+              env:
+                - name: GEMINI_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: distill-rss-secret
+                      key: GEMINI_API_KEY
+              volumeMounts:
+                - name: db
+                  mountPath: /data/db
+                - name: digests
+                  mountPath: /data/digests
+              resources:
+                requests:
+                  cpu: "100m"
+                  memory: "256Mi"
+                limits:
+                  cpu: "1000m"
+                  memory: "512Mi"
+          volumes:
+            - name: db
+              persistentVolumeClaim:
+                claimName: distill-rss-db
+            - name: digests
+              persistentVolumeClaim:
+                claimName: distill-rss-digests

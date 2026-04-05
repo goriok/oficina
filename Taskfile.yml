@@ -1,0 +1,182 @@
+version: "3"
+
+# ---------------------------------------------------------------------------
+# Variables — CLUSTER_HOST and CLUSTER_USER loaded from .env via mise
+# ---------------------------------------------------------------------------
+vars:
+  APP: distill-rss
+  APP_DIR: "{{.ROOT_DIR}}/../distill-rss"
+  # Registry is reachable at localhost:5000 from inside the VPS
+  REGISTRY: "localhost:5000"
+  IMAGE: "{{.REGISTRY}}/{{.APP}}:latest"
+  REGISTRY_NS: registry
+  REMOTE_BUILD_DIR: "/tmp/build-{{.APP}}"
+
+# ---------------------------------------------------------------------------
+# Default — list all tasks
+# ---------------------------------------------------------------------------
+tasks:
+  default:
+    desc: "List all available tasks"
+    silent: true
+    cmds:
+      - task --list
+
+  # -------------------------------------------------------------------------
+  # deploy:image — sync code → build on VPS → push to internal registry
+  # -------------------------------------------------------------------------
+  deploy:image:
+    desc: "Sync distill-rss source to VPS, build with podman, push to internal registry"
+    summary: |
+      1. rsync ../distill-rss/ to the VPS at /tmp/build-distill-rss/
+      2. SSH: podman build -t localhost:5000/distill-rss:latest
+      3. SSH: podman push (HTTP, no TLS — registry is cluster-local)
+      4. Cleans up the remote build directory
+
+      Requires: ssh key already in the VPS, kubeconfig on this machine
+    cmds:
+      - task: image:sync
+      - task: image:build
+      - task: image:push
+      - task: image:clean
+
+  # -------------------------------------------------------------------------
+  # deploy:cluster — apply all k8s manifests via kustomize
+  # -------------------------------------------------------------------------
+  deploy:cluster:
+    desc: "Apply all Kubernetes manifests to the cluster (kubectl apply -k k8s/)"
+    cmds:
+      - kubectl apply -k {{.ROOT_DIR}}/k8s/
+
+  # -------------------------------------------------------------------------
+  # deploy:all — image + manifests in one shot
+  # -------------------------------------------------------------------------
+  deploy:all:
+    desc: "Full deploy: build & push image, then apply k8s manifests"
+    cmds:
+      - task: deploy:image
+      - task: deploy:cluster
+
+  # -------------------------------------------------------------------------
+  # image:sync — rsync source to VPS (excludes venv, cache, db, .git)
+  # -------------------------------------------------------------------------
+  image:sync:
+    desc: "Sync distill-rss source to the VPS build directory"
+    internal: true
+    cmds:
+      - |
+        rsync -az --delete \
+          --exclude='.venv/' \
+          --exclude='.git/' \
+          --exclude='__pycache__/' \
+          --exclude='.pytest_cache/' \
+          --exclude='.ruff_cache/' \
+          --exclude='*.db' \
+          --exclude='*.db-shm' \
+          --exclude='*.db-wal' \
+          --exclude='.env' \
+          {{.APP_DIR}}/ \
+          {{.CLUSTER_USER}}@{{.CLUSTER_HOST}}:{{.REMOTE_BUILD_DIR}}/
+        echo "Synced to {{.CLUSTER_HOST}}:{{.REMOTE_BUILD_DIR}}"
+
+  # -------------------------------------------------------------------------
+  # image:build — podman build on the VPS
+  # -------------------------------------------------------------------------
+  image:build:
+    desc: "Build the distill-rss image on the VPS using podman"
+    internal: true
+    cmds:
+      - |
+        ssh {{.CLUSTER_USER}}@{{.CLUSTER_HOST}} \
+          "podman build -t {{.IMAGE}} {{.REMOTE_BUILD_DIR}}/"
+
+  # -------------------------------------------------------------------------
+  # image:push — podman push from VPS to internal registry (localhost:5000)
+  # -------------------------------------------------------------------------
+  image:push:
+    desc: "Push the image from the VPS to the internal cluster registry"
+    internal: true
+    cmds:
+      - |
+        ssh {{.CLUSTER_USER}}@{{.CLUSTER_HOST}} \
+          "podman push --tls-verify=false {{.IMAGE}}"
+
+  # -------------------------------------------------------------------------
+  # image:clean — remove the temporary build directory from the VPS
+  # -------------------------------------------------------------------------
+  image:clean:
+    desc: "Remove the temporary build directory from the VPS"
+    internal: true
+    cmds:
+      - |
+        ssh {{.CLUSTER_USER}}@{{.CLUSTER_HOST}} \
+          "rm -rf {{.REMOTE_BUILD_DIR}}"
+
+  # -------------------------------------------------------------------------
+  # cluster:setup — one-time setup: k3s registries.yaml + k3s restart
+  # Run this once before the first deploy:image
+  # -------------------------------------------------------------------------
+  cluster:setup:
+    desc: "One-time: configure k3s to trust the internal registry, then restart k3s"
+    summary: |
+      Creates /etc/rancher/k3s/registries.yaml on the VPS so k3s (containerd)
+      can pull images from the internal registry at localhost:5000 without TLS.
+      Then restarts k3s to apply the config.
+
+      Requires sudo password — an interactive TTY is allocated (-t).
+    cmds:
+      - |
+        ssh -t {{.CLUSTER_USER}}@{{.CLUSTER_HOST}} \
+          'printf "mirrors:\n  \"localhost:5000\":\n    endpoint:\n      - \"http://localhost:5000\"\n  \"registry.registry.svc.cluster.local:5000\":\n    endpoint:\n      - \"http://localhost:5000\"\nconfigs:\n  \"localhost:5000\":\n    tls:\n      insecure_skip_verify: true\n" | sudo tee /etc/rancher/k3s/registries.yaml && echo "registries.yaml written" && sudo systemctl restart k3s && echo "k3s restarted - waiting..." && sleep 10 && sudo k3s kubectl get nodes'
+
+  # -------------------------------------------------------------------------
+  # ssh — open an interactive SSH session to the cluster node
+  # -------------------------------------------------------------------------
+  ssh:
+    desc: "SSH into the cluster node ({{.CLUSTER_USER}}@{{.CLUSTER_HOST}})"
+    cmds:
+      - ssh {{.CLUSTER_USER}}@{{.CLUSTER_HOST}}
+
+  # -------------------------------------------------------------------------
+  # cluster:status — quick health check of all pods
+  # -------------------------------------------------------------------------
+  cluster:status:
+    desc: "Show status of all pods across all namespaces"
+    cmds:
+      - kubectl get pods -A
+
+  # -------------------------------------------------------------------------
+  # app:logs — tail distill-rss serve logs
+  # -------------------------------------------------------------------------
+  app:logs:
+    desc: "Tail logs from the distill-rss web server"
+    cmds:
+      - kubectl logs -n {{.APP}} deploy/{{.APP}} -f
+
+  # -------------------------------------------------------------------------
+  # app:pipeline:logs — tail logs from the last pipeline CronJob run
+  # -------------------------------------------------------------------------
+  app:pipeline:logs:
+    desc: "Tail logs from the most recent distill-rss pipeline job"
+    cmds:
+      - |
+        POD=$(kubectl get pods -n {{.APP}} -l role=pipeline \
+          --sort-by=.metadata.creationTimestamp \
+          -o jsonpath='{.items[-1].metadata.name}' 2>/dev/null)
+        if [ -z "$POD" ]; then
+          echo "No pipeline pod found yet"
+          exit 0
+        fi
+        kubectl logs -n {{.APP}} "$POD" -f
+
+  # -------------------------------------------------------------------------
+  # app:pipeline:run — trigger the CronJob manually right now
+  # -------------------------------------------------------------------------
+  app:pipeline:run:
+    desc: "Manually trigger the distill-rss pipeline CronJob right now"
+    cmds:
+      - |
+        kubectl create job \
+          --from=cronjob/{{.APP}}-pipeline \
+          {{.APP}}-pipeline-manual-$(date +%s) \
+          -n {{.APP}}

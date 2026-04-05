@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: distill-rss
+  namespace: distill-rss
+  labels:
+    app: distill-rss
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: distill-rss
+  # Recreate: SQLite does not support concurrent writers across pods
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: distill-rss
+    spec:
+      containers:
+        - name: distill-rss
+          # Internal cluster registry — push with: kubectl port-forward svc/registry 5000:5000 -n registry
+          # then: docker build -t localhost:5000/distill-rss:latest . && docker push localhost:5000/distill-rss:latest
+          image: registry.registry.svc.cluster.local:5000/distill-rss:latest
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: distill-rss-config
+          env:
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: distill-rss-secret
+                  key: GEMINI_API_KEY
+          volumeMounts:
+            - name: db
+              mountPath: /data/db
+            - name: digests
+              mountPath: /data/digests
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+      volumes:
+        - name: db
+          persistentVolumeClaim:
+            claimName: distill-rss-db
+        - name: digests
+          persistentVolumeClaim:
+            claimName: distill-rss-digests

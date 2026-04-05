@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: distill-rss-config
+  namespace: distill-rss
+data:
+  DAILY_TOKEN_LIMIT: "500000"
+  WEEKLY_TOKEN_LIMIT: "2000000"
+  BUDGET_WARN_THRESHOLD: "0.80"
+  BUDGET_STOP_THRESHOLD: "0.90"
+  MODEL_FILTER: "gemini-2.0-flash-lite"
+  MODEL_ANALYZER: "gemini-2.0-flash"
+  MODEL_REFLECTION: "gemini-2.0-pro-exp"
+  MAX_ARTICLE_AGE_DAYS: "7"
+  FEEDS_CONFIG: "/app/feeds.toml"
+  DB_PATH: "/data/db/distill.db"
+  DIGESTS_DIR: "/data/digests"
