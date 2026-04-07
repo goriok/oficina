@@ -1,0 +1,99 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: distill-rss-backup
+  namespace: distill-rss
+  labels:
+    app: distill-rss
+    role: backup
+spec:
+  # 03:00 UTC daily — after vaultwarden-backup (02:00) to avoid I/O contention
+  schedule: "0 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            app: distill-rss
+            role: backup
+        spec:
+          restartPolicy: Never
+          serviceAccountName: distill-rss-backup
+          containers:
+            - name: backup
+              image: alpine:3.21
+              command:
+                - /bin/sh
+                - -euc
+                - |
+                  apk add --no-cache sqlite restic
+
+                  restic snapshots --json 2>/dev/null || restic init
+
+                  # Consistent SQLite snapshot
+                  sqlite3 /data/db/distill.db ".backup /tmp/distill.db.bak"
+
+                  # Back up the DB snapshot.
+                  # Digests are regenerable — omitted by default.
+                  # To include digests, add: /data/digests
+                  restic backup \
+                    /tmp/distill.db.bak \
+                    --tag distill-rss
+
+                  restic forget \
+                    --keep-daily 7 \
+                    --keep-weekly 4 \
+                    --keep-monthly 3 \
+                    --prune \
+                    --tag distill-rss
+
+                  echo "Backup complete."
+
+                  # Ping Healthchecks.io to signal success.
+                  wget -qO- "${HEALTHCHECK_URL}" > /dev/null
+              env:
+                - name: RESTIC_REPOSITORY
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-credentials
+                      key: RESTIC_REPOSITORY
+                - name: RESTIC_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-credentials
+                      key: RESTIC_PASSWORD
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-credentials
+                      key: AWS_ACCESS_KEY_ID
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-credentials
+                      key: AWS_SECRET_ACCESS_KEY
+                # Healthchecks.io ping URL — signals successful backup
+                - name: HEALTHCHECK_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-credentials
+                      key: HEALTHCHECK_URL
+              volumeMounts:
+                - name: db
+                  mountPath: /data/db
+                  readOnly: true
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "64Mi"
+                limits:
+                  cpu: "500m"
+                  memory: "256Mi"
+          volumes:
+            - name: db
+              persistentVolumeClaim:
+                claimName: distill-rss-db

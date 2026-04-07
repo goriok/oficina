@@ -18,11 +18,13 @@ spec:
       labels:
         app: distill-rss
     spec:
+      terminationGracePeriodSeconds: 10
       containers:
         - name: distill-rss
           # Internal cluster registry — push with: kubectl port-forward svc/registry 5000:5000 -n registry
           # then: docker build -t localhost:5000/distill-rss:latest . && docker push localhost:5000/distill-rss:latest
           image: registry.registry.svc.cluster.local:5000/distill-rss:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 8000
@@ -47,20 +49,26 @@ spec:
             limits:
               cpu: "500m"
               memory: "512Mi"
+          startupProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 2
+            periodSeconds: 3
+            failureThreshold: 10
           livenessProbe:
             httpGet:
               path: /
               port: 8000
-            initialDelaySeconds: 15
             periodSeconds: 30
             failureThreshold: 3
           readinessProbe:
             httpGet:
               path: /
               port: 8000
-            initialDelaySeconds: 10
-            periodSeconds: 10
-            failureThreshold: 3
+            initialDelaySeconds: 0
+            periodSeconds: 5
+            failureThreshold: 2
       volumes:
         - name: db
           persistentVolumeClaim:

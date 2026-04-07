@@ -7,3 +7,5 @@ resources:
   - deployment.yaml
   - service.yaml
   - ingress.yaml
+  - backup-rbac.yaml
+  - backup-cronjob.yaml

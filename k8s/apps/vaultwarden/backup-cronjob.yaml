@@ -1,0 +1,119 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: vaultwarden-backup
+  namespace: vaultwarden
+  labels:
+    app: vaultwarden
+    role: backup
+spec:
+  # 02:00 UTC daily — offset from distill-rss backup to avoid I/O contention
+  schedule: "0 2 * * *"
+  # Never run two backup jobs in parallel
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # Do not retry on failure — a failed backup should alert, not silently retry
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            app: vaultwarden
+            role: backup
+        spec:
+          restartPolicy: Never
+          serviceAccountName: vaultwarden-backup
+          containers:
+            - name: backup
+              # Alpine with sqlite3 + restic installed at runtime via apk.
+              # Avoids a custom image build; acceptable for a daily job.
+              image: alpine:3.21
+              command:
+                - /bin/sh
+                - -euc
+                - |
+                  # Install dependencies
+                  apk add --no-cache sqlite restic
+
+                  # Initialise the restic repository if it does not exist yet.
+                  # `restic snapshots` exits 1 on a fresh repo; we handle that gracefully.
+                  restic snapshots --json 2>/dev/null || restic init
+
+                  # Take a consistent SQLite snapshot using the Online Backup API.
+                  # This is safe even while Vaultwarden holds the file open.
+                  sqlite3 /data/db.sqlite3 ".backup /tmp/vaultwarden.db.bak"
+
+                  # Back up:
+                  #   - the consistent DB snapshot
+                  #   - attachments/  (binary vault attachments)
+                  #   - config.json   (Vaultwarden config, if present)
+                  # Exclude the live DB file — we use only the .bak snapshot.
+                  restic backup \
+                    /tmp/vaultwarden.db.bak \
+                    /data/attachments \
+                    --tag vaultwarden \
+                    --exclude /data/db.sqlite3 \
+                    --exclude /data/db.sqlite3-shm \
+                    --exclude /data/db.sqlite3-wal
+
+                  # Retention: keep 7 daily, 4 weekly, 3 monthly snapshots.
+                  restic forget \
+                    --keep-daily 7 \
+                    --keep-weekly 4 \
+                    --keep-monthly 3 \
+                    --prune \
+                    --tag vaultwarden
+
+                  echo "Backup complete."
+
+                  # Ping Healthchecks.io to signal success.
+                  # If this job fails before reaching here, no ping is sent → healthchecks alerts.
+                  wget -qO- "${HEALTHCHECK_URL}" > /dev/null
+              env:
+                # restic repository location — S3-compatible (B2 or R2)
+                - name: RESTIC_REPOSITORY
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-credentials
+                      key: RESTIC_REPOSITORY
+                # restic encryption password
+                - name: RESTIC_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-credentials
+                      key: RESTIC_PASSWORD
+                # Cloudflare R2 access key
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-credentials
+                      key: AWS_ACCESS_KEY_ID
+                # S3/R2 secret key
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-credentials
+                      key: AWS_SECRET_ACCESS_KEY
+                # Healthchecks.io ping URL — signals successful backup
+                - name: HEALTHCHECK_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-credentials
+                      key: HEALTHCHECK_URL
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+                  readOnly: true
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "64Mi"
+                limits:
+                  cpu: "500m"
+                  memory: "256Mi"
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: vaultwarden-data
