@@ -1,0 +1,144 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cluster-health
+  namespace: cluster-health
+  labels:
+    app: cluster-health
+spec:
+  # Run every 30 minutes. Set the healthchecks.io check period to 1h with a
+  # 15-minute grace period — the check will fire if two consecutive pings are missed.
+  schedule: "*/30 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # Do not retry. A failure means an assertion did not pass.
+      # No ping is sent → healthchecks.io alerts on schedule expiry.
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            app: cluster-health
+        spec:
+          restartPolicy: Never
+          serviceAccountName: cluster-health
+          containers:
+            - name: health-check
+              image: alpine:3.21
+              command:
+                - /bin/sh
+                - -euc
+                - |
+                  apk add --no-cache curl jq
+
+                  # ── Kubernetes API helpers ────────────────────────────────
+                  APISERVER="https://kubernetes.default.svc"
+                  TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+                  CACERT="/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+
+                  k8s_get() {
+                    curl -sf --cacert "$CACERT" \
+                      -H "Authorization: Bearer $TOKEN" \
+                      "${APISERVER}${1}"
+                  }
+
+                  # ── Check 1: Node is Ready ────────────────────────────────
+                  echo "==> Checking node status..."
+                  NOT_READY=$(k8s_get "/api/v1/nodes" | \
+                    jq -r '
+                      .items[] |
+                      select(
+                        (.status.conditions[] |
+                          select(.type == "Ready") | .status) != "True"
+                      ) | .metadata.name
+                    ')
+                  if [ -n "$NOT_READY" ]; then
+                    echo "FAIL: Node(s) not Ready: $NOT_READY"
+                    exit 1
+                  fi
+                  echo "OK: All nodes are Ready."
+
+                  # ── Check 2: Critical pods are Running ───────────────────
+                  # Namespaces that must have all pods healthy.
+                  # Completed pods (backup jobs, pipeline runs) are excluded.
+                  echo "==> Checking critical pod status..."
+                  CRITICAL_NS="vaultwarden distill-rss cloudflare-tunnel traefik kube-system registry"
+                  FAILED_PODS=""
+                  for NS in $CRITICAL_NS; do
+                    BAD=$(k8s_get "/api/v1/namespaces/${NS}/pods" | \
+                      jq -r '
+                        .items[] |
+                        select(
+                          .status.phase != "Running" and
+                          .status.phase != "Succeeded"
+                        ) |
+                        "\(.metadata.namespace)/\(.metadata.name) (\(.status.phase))"
+                      ')
+                    if [ -n "$BAD" ]; then
+                      FAILED_PODS="${FAILED_PODS}${BAD}\n"
+                    fi
+                  done
+                  if [ -n "$FAILED_PODS" ]; then
+                    printf "FAIL: Pods not healthy:\n%b" "$FAILED_PODS"
+                    exit 1
+                  fi
+                  echo "OK: All critical pods are Running."
+
+                  # ── Check 3: Backup jobs completed successfully in last 25h ─
+                  # Tolerance is 25h (not 24h) to absorb minor schedule drift.
+                  # BusyBox date arithmetic: no "N hours ago" syntax; use seconds.
+                  echo "==> Checking backup job recency..."
+                  CUTOFF=$(( $(date +%s) - 90000 ))  # 25 * 3600 = 90000
+                  STALE_JOBS=""
+                  check_backup() {
+                    NS="$1"
+                    JOB_PREFIX="$2"
+                    LATEST_SUCCESS=$(k8s_get "/apis/batch/v1/namespaces/${NS}/jobs" | \
+                      jq -r --arg prefix "$JOB_PREFIX" '
+                        .items[] |
+                        select(.metadata.name | startswith($prefix)) |
+                        select(.status.succeeded == 1) |
+                        .status.completionTime
+                      ' | sort | tail -1)
+                    if [ -z "$LATEST_SUCCESS" ]; then
+                      STALE_JOBS="${STALE_JOBS}${NS}/${JOB_PREFIX}: no successful run found\n"
+                      return
+                    fi
+                    # BusyBox date requires explicit format descriptor (-D) for ISO8601 parsing.
+                    COMPLETED_TS=$(date -D "%Y-%m-%dT%H:%M:%SZ" -d "$LATEST_SUCCESS" +%s)
+                    if [ "$COMPLETED_TS" -lt "$CUTOFF" ]; then
+                      STALE_JOBS="${STALE_JOBS}${NS}/${JOB_PREFIX}: last success was ${LATEST_SUCCESS}\n"
+                    fi
+                  }
+                  check_backup "vaultwarden" "vaultwarden-backup"
+                  check_backup "distill-rss" "distill-rss-backup"
+                  if [ -n "$STALE_JOBS" ]; then
+                    printf "FAIL: Stale or missing backup jobs:\n%b" "$STALE_JOBS"
+                    exit 1
+                  fi
+                  echo "OK: Backup jobs have recent successful completions."
+
+                  # ── All checks passed — ping Healthchecks.io ─────────────
+                  echo "All checks passed. Pinging healthchecks.io..."
+                  curl -fsS --retry 3 "${HEALTHCHECK_URL}" > /dev/null
+                  echo "Done."
+              env:
+                # Healthchecks.io ping URL.
+                # Create the secret with:
+                #   kubectl create secret generic cluster-health-credentials \
+                #     --namespace cluster-health \
+                #     --from-literal=HEALTHCHECK_URL="https://hc-ping.com/<uuid>"
+                - name: HEALTHCHECK_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: cluster-health-credentials
+                      key: HEALTHCHECK_URL
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "64Mi"
+                limits:
+                  cpu: "200m"
+                  memory: "128Mi"

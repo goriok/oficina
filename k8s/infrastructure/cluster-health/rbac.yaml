@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cluster-health
+  namespace: cluster-health
+---
+# Read-only access to nodes (cluster-scoped), pods, and jobs across the cluster.
+# Personal single-node cluster: ClusterRole is simpler than per-namespace Roles
+# and the read-only blast radius is acceptable.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cluster-health-reader
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "pods"]
+    verbs: ["get", "list"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cluster-health-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-health-reader
+subjects:
+  - kind: ServiceAccount
+    name: cluster-health
+    namespace: cluster-health
