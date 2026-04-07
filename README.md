@@ -1,4 +1,4 @@
-# my-cluster
+# oficina
 
 GitOps repository for a self-hosted Kubernetes cluster running on a Contabo VPS, using k3s, Traefik v3, Cloudflare Tunnel, and Kustomize.
 

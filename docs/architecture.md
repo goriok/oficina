@@ -16,11 +16,11 @@ Mostra o sistema como um todo e como ele se relaciona com atores externos e sist
 
 ```mermaid
 C4Context
-    title Sistema — my-cluster (Visão Geral)
+    title Sistema — oficina (Visão Geral)
 
     Person(user, "Usuário", "Acessa aplicações via browser ou clientes Bitwarden")
 
-    System_Boundary(cluster, "my-cluster (VPS Contabo)") {
+    System_Boundary(cluster, "oficina (VPS Contabo)") {
         System(k3s, "Cluster k3s", "Orquestra containers, gerencia rede interna e exposição de serviços")
     }
 
@@ -93,7 +93,7 @@ C4Component
     Container_Boundary(ct, "cloudflared (namespace: cloudflare-tunnel)") {
         Component(daemon, "cloudflared daemon", "Pod container", "Processo principal. Mantém conexão persistente com edge da Cloudflare")
         Component(config, "ConfigMap: cloudflared-config", "config.yaml montado em /etc/cloudflared/", "Define tunnel ID e regra de ingress: *.goriok.com → Traefik. Fallback: http_status:404")
-        Component(secret, "Secret: cloudflare-tunnel-credentials", "credentials.json montado em /etc/cloudflared/creds/", "Token de autenticação do tunnel my-cluster. NUNCA commitado no git")
+        Component(secret, "Secret: cloudflare-tunnel-credentials", "credentials.json montado em /etc/cloudflared/creds/", "Token de autenticação do tunnel oficina. NUNCA commitado no git")
     }
 
     System_Ext(cf_edge, "Cloudflare Edge")
