@@ -34,6 +34,7 @@ spec:
                 - -c
                 - |
                   distill run --incremental
+                  distill daily --profile ai
                   curl -fsS --retry 3 "$HEALTHCHECK_URL"
               envFrom:
                 - configMapRef:

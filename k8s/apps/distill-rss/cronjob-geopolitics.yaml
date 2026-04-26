@@ -36,6 +36,7 @@ spec:
                 - -c
                 - |
                   distill run --incremental --profile geopolitics --limit 30
+                  distill daily --profile geopolitics
                   curl -fsS --retry 3 "$HEALTHCHECK_URL_GEOPOLITICS"
               envFrom:
                 - configMapRef:

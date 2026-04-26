@@ -1,0 +1,62 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: distill-rss-backfill-daily
+  namespace: distill-rss
+  labels:
+    app: distill-rss
+    role: backfill
+spec:
+  # No retries — if a date fails it's because there are no items; that's fine
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: distill-rss
+        role: backfill
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: distill-rss-backfill-daily
+          image: registry.registry.svc.cluster.local:5000/distill-rss:latest
+          # Iterate over the last 7 days for both profiles.
+          # --force is not set: days that already have a summary are skipped.
+          command:
+            - sh
+            - -c
+            - |
+              for i in 1 2 3 4 5 6 7; do
+                DAY=$(date -d "-${i} days" +%Y-%m-%d 2>/dev/null || date -v-${i}d +%Y-%m-%d)
+                echo "=== Backfilling $DAY ==="
+                distill daily --profile ai --date "$DAY"
+                distill daily --profile geopolitics --date "$DAY"
+              done
+              echo "=== Backfill complete ==="
+          envFrom:
+            - configMapRef:
+                name: distill-rss-config
+          env:
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: distill-rss-secret
+                  key: GEMINI_API_KEY
+          volumeMounts:
+            - name: db
+              mountPath: /data/db
+            - name: digests
+              mountPath: /data/digests
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+      volumes:
+        - name: db
+          persistentVolumeClaim:
+            claimName: distill-rss-db
+        - name: digests
+          persistentVolumeClaim:
+            claimName: distill-rss-digests
