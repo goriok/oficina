@@ -1,13 +1,14 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: distill-rss-pipeline
+  name: distill-rss-pipeline-geopolitics
   namespace: distill-rss
   labels:
     app: distill-rss
+    profile: geopolitics
 spec:
-  # Daily at 06:00 UTC — matches the original launchd schedule
-  schedule: "0 6 * * *"
+  # Daily at 07:00 UTC — 1 hour after the AI pipeline (06:00 UTC)
+  schedule: "0 7 * * *"
   timeZone: "UTC"
   # Never run two pipeline jobs in parallel (SQLite single-writer)
   concurrencyPolicy: Forbid
@@ -23,18 +24,19 @@ spec:
           labels:
             app: distill-rss
             role: pipeline
+            profile: geopolitics
         spec:
           restartPolicy: OnFailure
           containers:
-            - name: distill-rss-pipeline
+            - name: distill-rss-pipeline-geopolitics
               image: registry.registry.svc.cluster.local:5000/distill-rss:latest
-              # Override CMD: run the daily pipeline then ping healthchecks.io
+              # Run the geopolitics pipeline then ping the geopolitics healthcheck
               command:
                 - sh
                 - -c
                 - |
-                  distill run --incremental
-                  curl -fsS --retry 3 "$HEALTHCHECK_URL"
+                  distill run --incremental --profile geopolitics --limit 30
+                  curl -fsS --retry 3 "$HEALTHCHECK_URL_GEOPOLITICS"
               envFrom:
                 - configMapRef:
                     name: distill-rss-config
@@ -44,11 +46,11 @@ spec:
                     secretKeyRef:
                       name: distill-rss-secret
                       key: GEMINI_API_KEY
-                - name: HEALTHCHECK_URL
+                - name: HEALTHCHECK_URL_GEOPOLITICS
                   valueFrom:
                     secretKeyRef:
                       name: distill-rss-pipeline-secret
-                      key: HEALTHCHECK_URL
+                      key: HEALTHCHECK_URL_GEOPOLITICS
               volumeMounts:
                 - name: db
                   mountPath: /data/db

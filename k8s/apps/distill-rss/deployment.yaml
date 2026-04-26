@@ -24,7 +24,10 @@ spec:
           # Internal cluster registry — push with: kubectl port-forward svc/registry 5000:5000 -n registry
           # then: docker build -t localhost:5000/distill-rss:latest . && docker push localhost:5000/distill-rss:latest
           image: registry.registry.svc.cluster.local:5000/distill-rss:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
+          # Serve all profiles (ai + geopolitics) via ?profile= query param.
+          # Each profile reads its own SQLite file under /data/db/.
+          command: ["distill", "serve", "--host", "0.0.0.0", "--port", "8000", "--all-profiles"]
           ports:
             - name: http
               containerPort: 8000

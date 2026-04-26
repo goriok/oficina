@@ -9,5 +9,6 @@ resources:
   - service.yaml
   - ingress.yaml
   - cronjob.yaml
+  - cronjob-geopolitics.yaml
   - backup-rbac.yaml
   - backup-cronjob.yaml

@@ -13,5 +13,6 @@ data:
   MODEL_REFLECTION: "gemini-3.1-pro-preview"
   MAX_ARTICLE_AGE_DAYS: "7"
   FEEDS_CONFIG: "/app/feeds.toml"
+  FEEDS_CONFIG_GEOPOLITICS: "/app/feeds-geopolitics.toml"
   DB_PATH: "/data/db/distill.db"
   DIGESTS_DIR: "/data/digests"
