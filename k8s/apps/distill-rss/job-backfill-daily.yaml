@@ -20,7 +20,7 @@ spec:
         - name: distill-rss-backfill-daily
           image: registry.registry.svc.cluster.local:5000/distill-rss:latest
           # Iterate over the last 7 days for both profiles.
-          # --force is not set: days that already have a summary are skipped.
+          # --force regenerates even if a summary already exists (pt-BR backfill).
           command:
             - sh
             - -c
@@ -28,8 +28,8 @@ spec:
               for i in 1 2 3 4 5 6 7; do
                 DAY=$(date -d "-${i} days" +%Y-%m-%d 2>/dev/null || date -v-${i}d +%Y-%m-%d)
                 echo "=== Backfilling $DAY ==="
-                distill daily --profile ai --date "$DAY"
-                distill daily --profile geopolitics --date "$DAY"
+                distill daily --profile ai --date "$DAY" --force
+                distill daily --profile geopolitics --date "$DAY" --force
               done
               echo "=== Backfill complete ==="
           envFrom:
