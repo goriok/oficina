@@ -10,7 +10,6 @@ spec:
   selector:
     matchLabels:
       app: distill-rss
-  # Recreate: SQLite does not support concurrent writers across pods
   strategy:
     type: Recreate
   template:
@@ -21,12 +20,8 @@ spec:
       terminationGracePeriodSeconds: 10
       containers:
         - name: distill-rss
-          # Internal cluster registry — push with: kubectl port-forward svc/registry 5000:5000 -n registry
-          # then: docker build -t localhost:5000/distill-rss:latest . && docker push localhost:5000/distill-rss:latest
           image: registry.registry.svc.cluster.local:5000/distill-rss:latest
           imagePullPolicy: Always
-          # Serve all profiles (ai + geopolitics) via ?profile= query param.
-          # Each profile reads its own SQLite file under /data/db/.
           command: ["distill", "serve", "--host", "0.0.0.0", "--port", "8000", "--all-profiles"]
           ports:
             - name: http
@@ -35,14 +30,17 @@ spec:
             - configMapRef:
                 name: distill-rss-config
           env:
-            - name: GEMINI_API_KEY
+            - name: LITELLM_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: distill-rss-secret
-                  key: GEMINI_API_KEY
+                  key: LITELLM_API_KEY
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: distill-rss-secret
+                  key: DATABASE_URL
           volumeMounts:
-            - name: db
-              mountPath: /data/db
             - name: digests
               mountPath: /data/digests
           resources:
@@ -73,9 +71,6 @@ spec:
             periodSeconds: 5
             failureThreshold: 2
       volumes:
-        - name: db
-          persistentVolumeClaim:
-            claimName: distill-rss-db
         - name: digests
           persistentVolumeClaim:
             claimName: distill-rss-digests

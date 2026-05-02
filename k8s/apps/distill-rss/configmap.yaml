@@ -4,15 +4,15 @@ metadata:
   name: distill-rss-config
   namespace: distill-rss
 data:
-  DAILY_TOKEN_LIMIT: "500000"
+  DAILY_TOKEN_LIMIT: "1000000"
   WEEKLY_TOKEN_LIMIT: "2000000"
   BUDGET_WARN_THRESHOLD: "0.80"
   BUDGET_STOP_THRESHOLD: "0.90"
-  MODEL_FILTER: "gemini-3.1-flash-lite-preview"
-  MODEL_ANALYZER: "gemini-3-flash-preview"
-  MODEL_REFLECTION: "gemini-3.1-pro-preview"
+  MODEL_FILTER: "gemini-flash-lite"
+  MODEL_ANALYZER: "gemini-flash"
+  MODEL_REFLECTION: "gemini-pro"
+  LITELLM_BASE_URL: "http://litellm.litellm.svc.cluster.local:4000/v1"
   MAX_ARTICLE_AGE_DAYS: "7"
   FEEDS_CONFIG: "/app/feeds.toml"
   FEEDS_CONFIG_GEOPOLITICS: "/app/feeds-geopolitics.toml"
-  DB_PATH: "/data/db/distill.db"
   DIGESTS_DIR: "/data/digests"

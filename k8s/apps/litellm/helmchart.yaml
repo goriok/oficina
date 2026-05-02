@@ -1,0 +1,68 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: litellm
+  namespace: kube-system
+spec:
+  repo: https://berriai.github.io/litellm-helm
+  chart: litellm
+  targetNamespace: litellm
+  createNamespace: true
+  valuesContent: |-
+    replicaCount: 1
+
+    image:
+      repository: ghcr.io/berriai/litellm
+      tag: main-latest
+      pullPolicy: Always
+
+    environmentSecrets:
+      - litellm-secret
+
+    extraEnv:
+      - name: LITELLM_CONFIG_BUCKET_NAME
+        value: ""
+
+    # config.yaml montado via ConfigMap
+    extraVolumes:
+      - name: litellm-config
+        configMap:
+          name: litellm-config
+    extraVolumeMounts:
+      - name: litellm-config
+        mountPath: /app/config.yaml
+        subPath: config.yaml
+        readOnly: true
+
+    args:
+      - "--config"
+      - "/app/config.yaml"
+
+    service:
+      type: ClusterIP
+      port: 4000
+
+    ingress:
+      enabled: false
+
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+
+    readinessProbe:
+      httpGet:
+        path: /health/readiness
+        port: 4000
+      initialDelaySeconds: 30
+      periodSeconds: 10
+
+    livenessProbe:
+      httpGet:
+        path: /health/liveliness
+        port: 4000
+      initialDelaySeconds: 60
+      periodSeconds: 30

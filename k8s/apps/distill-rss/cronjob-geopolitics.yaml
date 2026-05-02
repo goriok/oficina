@@ -7,17 +7,13 @@ metadata:
     app: distill-rss
     profile: geopolitics
 spec:
-  # Daily at 07:00 UTC — 1 hour after the AI pipeline (06:00 UTC)
   schedule: "0 7 * * *"
   timeZone: "UTC"
-  # Never run two pipeline jobs in parallel (SQLite single-writer)
   concurrencyPolicy: Forbid
-  # Keep last 3 successful and 1 failed job log for debugging
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 1
   jobTemplate:
     spec:
-      # Retry up to 2 times before marking as failed
       backoffLimit: 2
       template:
         metadata:
@@ -30,7 +26,6 @@ spec:
           containers:
             - name: distill-rss-pipeline-geopolitics
               image: registry.registry.svc.cluster.local:5000/distill-rss:latest
-              # Run the geopolitics pipeline then ping the geopolitics healthcheck
               command:
                 - sh
                 - -c
@@ -42,19 +37,22 @@ spec:
                 - configMapRef:
                     name: distill-rss-config
               env:
-                - name: GEMINI_API_KEY
+                - name: LITELLM_API_KEY
                   valueFrom:
                     secretKeyRef:
                       name: distill-rss-secret
-                      key: GEMINI_API_KEY
+                      key: LITELLM_API_KEY
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: distill-rss-secret
+                      key: DATABASE_URL
                 - name: HEALTHCHECK_URL_GEOPOLITICS
                   valueFrom:
                     secretKeyRef:
                       name: distill-rss-pipeline-secret
                       key: HEALTHCHECK_URL_GEOPOLITICS
               volumeMounts:
-                - name: db
-                  mountPath: /data/db
                 - name: digests
                   mountPath: /data/digests
               resources:
@@ -65,9 +63,6 @@ spec:
                   cpu: "1000m"
                   memory: "512Mi"
           volumes:
-            - name: db
-              persistentVolumeClaim:
-                claimName: distill-rss-db
             - name: digests
               persistentVolumeClaim:
                 claimName: distill-rss-digests

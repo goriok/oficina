@@ -1,34 +1,27 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: distill-rss-backfill-daily
+  name: distill-rss-clean
   namespace: distill-rss
   labels:
     app: distill-rss
-    role: backfill
+    role: clean
 spec:
   backoffLimit: 0
   template:
     metadata:
       labels:
         app: distill-rss
-        role: backfill
+        role: clean
     spec:
       restartPolicy: Never
       containers:
-        - name: distill-rss-backfill-daily
+        - name: distill-rss-clean
           image: registry.registry.svc.cluster.local:5000/distill-rss:latest
           command:
             - sh
             - -c
-            - |
-              for i in 1 2 3 4 5 6 7; do
-                DAY=$(date -d "-${i} days" +%Y-%m-%d 2>/dev/null || date -v-${i}d +%Y-%m-%d)
-                echo "=== Backfilling $DAY ==="
-                distill daily --profile ai --date "$DAY" --force
-                distill daily --profile geopolitics --date "$DAY" --force
-              done
-              echo "=== Backfill complete ==="
+            - distill clean --yes
           envFrom:
             - configMapRef:
                 name: distill-rss-config
@@ -49,10 +42,10 @@ spec:
           resources:
             requests:
               cpu: "100m"
-              memory: "256Mi"
+              memory: "128Mi"
             limits:
-              cpu: "1000m"
-              memory: "512Mi"
+              cpu: "500m"
+              memory: "256Mi"
       volumes:
         - name: digests
           persistentVolumeClaim:
