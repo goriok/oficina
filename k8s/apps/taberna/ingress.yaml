@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: taberna
+  namespace: taberna
+  labels:
+    app: taberna
+spec:
+  rules:
+    - host: taberna.goriok.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: taberna
+                port:
+                  number: 80

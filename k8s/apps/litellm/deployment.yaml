@@ -35,6 +35,16 @@ spec:
                 secretKeyRef:
                   name: litellm-secret
                   key: GEMINI_API_KEY
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: litellm-secret
+                  key: ANTHROPIC_API_KEY
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: litellm-secret
+                  key: OPENAI_API_KEY
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:

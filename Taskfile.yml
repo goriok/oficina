@@ -1,8 +1,10 @@
 version: "3"
 
 # ---------------------------------------------------------------------------
-# Variables — CLUSTER_HOST and CLUSTER_USER loaded from .env via mise
+# Variables — CLUSTER_HOST and CLUSTER_USER loaded from .env
 # ---------------------------------------------------------------------------
+dotenv: [".env"]
+
 vars:
   APP: distill-rss
   APP_DIR: "{{.ROOT_DIR}}/../distill-rss"

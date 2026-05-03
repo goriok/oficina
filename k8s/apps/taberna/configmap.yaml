@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: taberna-config
+  namespace: taberna
+data:
+  PUBLIC_APP_URL: "taberna.goriok.com"
+  LITELLM_BASE_URL: "http://litellm.litellm.svc.cluster.local:4000/v1"

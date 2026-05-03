@@ -1,11 +1,13 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: distill-rss-digests
-  namespace: distill-rss
+  name: grafana-data
+  namespace: monitoring
+  labels:
+    app: grafana
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 512Mi
+      storage: 2Gi

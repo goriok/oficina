@@ -4,12 +4,9 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - configmap.yaml
-  - pvc.yaml
+  - migration-job.yaml
   - deployment.yaml
   - service.yaml
   - ingress.yaml
-  - cronjob.yaml
-  - cronjob-geopolitics.yaml
-  - job-backfill-daily.yaml
-  - backup-rbac.yaml
-  - backup-cronjob.yaml
+
+namespace: taberna

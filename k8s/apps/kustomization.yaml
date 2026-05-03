@@ -6,3 +6,4 @@ resources:
   - vaultwarden/
   - distill-rss/
   - litellm/
+  - taberna/

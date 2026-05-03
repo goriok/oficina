@@ -21,7 +21,27 @@ data:
           model: gemini/gemini-2.5-pro
           api_key: os.environ/GEMINI_API_KEY
 
+      - model_name: gemini-flash-lite-3
+        litellm_params:
+          model: gemini/gemini-3.1-flash-lite-preview
+          api_key: os.environ/GEMINI_API_KEY
+
+      - model_name: gemini-flash-3
+        litellm_params:
+          model: gemini/gemini-3-flash-preview
+          api_key: os.environ/GEMINI_API_KEY
+
+      - model_name: gemini-pro-3
+        litellm_params:
+          model: gemini/gemini-3.1-pro-preview
+          api_key: os.environ/GEMINI_API_KEY
+
     general_settings:
       master_key: os.environ/LITELLM_MASTER_KEY
       database_url: os.environ/DATABASE_URL
       store_model_in_db: true
+
+    cache:
+      type: redis
+      host: redis.shared.svc.cluster.local
+      port: 6379
