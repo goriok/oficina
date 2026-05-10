@@ -14,6 +14,12 @@ vars:
   REGISTRY_NS: registry
   REMOTE_BUILD_DIR: "/tmp/build-{{.APP}}"
 
+  # Taberna app variables
+  TABERNA_APP: taberna
+  TABERNA_APP_DIR: "{{.ROOT_DIR}}/../taberna"
+  TABERNA_IMAGE: "{{.REGISTRY}}/{{.TABERNA_APP}}:latest"
+  TABERNA_REMOTE_BUILD_DIR: "/tmp/build-{{.TABERNA_APP}}"
+
 # ---------------------------------------------------------------------------
 # Default — list all tasks
 # ---------------------------------------------------------------------------
@@ -58,6 +64,41 @@ tasks:
     cmds:
       - task: deploy:image
       - task: deploy:cluster
+
+  # -------------------------------------------------------------------------
+  # deploy:taberna:image — sync code → build on VPS → push to internal registry
+  # -------------------------------------------------------------------------
+  deploy:taberna:image:
+    desc: "Sync taberna source to VPS, build with podman, push to internal registry"
+    summary: |
+      1. rsync ../taberna/ to the VPS at /tmp/build-taberna/
+      2. SSH: podman build -t localhost:5000/taberna:latest
+      3. SSH: podman push (HTTP, no TLS — registry is cluster-local)
+      4. Cleans up the remote build directory
+
+      Requires: ssh key already in the VPS, kubeconfig on this machine
+    cmds:
+      - task: taberna:image:sync
+      - task: taberna:image:build
+      - task: taberna:image:push
+      - task: taberna:image:clean
+
+  # -------------------------------------------------------------------------
+  # deploy:taberna:cluster — apply taberna k8s manifests
+  # -------------------------------------------------------------------------
+  deploy:taberna:cluster:
+    desc: "Apply taberna Kubernetes manifests to the cluster"
+    cmds:
+      - kubectl apply -k {{.ROOT_DIR}}/k8s/apps/taberna/
+
+  # -------------------------------------------------------------------------
+  # deploy:taberna:all — image + manifests in one shot
+  # -------------------------------------------------------------------------
+  deploy:taberna:all:
+    desc: "Full taberna deploy: build & push image, then apply k8s manifests"
+    cmds:
+      - task: deploy:taberna:image
+      - task: deploy:taberna:cluster
 
   # -------------------------------------------------------------------------
   # image:sync — rsync source to VPS (excludes venv, cache, db, .git)
@@ -113,6 +154,58 @@ tasks:
       - |
         ssh {{.CLUSTER_USER}}@{{.CLUSTER_HOST}} \
           "rm -rf {{.REMOTE_BUILD_DIR}}"
+
+  # -------------------------------------------------------------------------
+  # taberna:image:sync — rsync taberna source to VPS
+  # -------------------------------------------------------------------------
+  taberna:image:sync:
+    desc: "Sync taberna source to the VPS build directory"
+    internal: true
+    cmds:
+      - |
+        rsync -az --delete \
+          --exclude='.next/' \
+          --exclude='node_modules/' \
+          --exclude='.git/' \
+          --exclude='.env*' \
+          --exclude='*.heapsnapshot' \
+          --exclude='.claude/' \
+          {{.TABERNA_APP_DIR}}/ \
+          {{.CLUSTER_USER}}@{{.CLUSTER_HOST}}:{{.TABERNA_REMOTE_BUILD_DIR}}/
+        echo "Synced to {{.CLUSTER_HOST}}:{{.TABERNA_REMOTE_BUILD_DIR}}"
+
+  # -------------------------------------------------------------------------
+  # taberna:image:build — podman build taberna on the VPS
+  # -------------------------------------------------------------------------
+  taberna:image:build:
+    desc: "Build the taberna image on the VPS using podman"
+    internal: true
+    cmds:
+      - |
+        ssh {{.CLUSTER_USER}}@{{.CLUSTER_HOST}} \
+          "podman build -t {{.TABERNA_IMAGE}} {{.TABERNA_REMOTE_BUILD_DIR}}/"
+
+  # -------------------------------------------------------------------------
+  # taberna:image:push — podman push taberna to internal registry
+  # -------------------------------------------------------------------------
+  taberna:image:push:
+    desc: "Push the taberna image from the VPS to the internal cluster registry"
+    internal: true
+    cmds:
+      - |
+        ssh {{.CLUSTER_USER}}@{{.CLUSTER_HOST}} \
+          "podman push --tls-verify=false {{.TABERNA_IMAGE}}"
+
+  # -------------------------------------------------------------------------
+  # taberna:image:clean — remove the temporary build directory from the VPS
+  # -------------------------------------------------------------------------
+  taberna:image:clean:
+    desc: "Remove the temporary taberna build directory from the VPS"
+    internal: true
+    cmds:
+      - |
+        ssh {{.CLUSTER_USER}}@{{.CLUSTER_HOST}} \
+          "rm -rf {{.TABERNA_REMOTE_BUILD_DIR}}"
 
   # -------------------------------------------------------------------------
   # cluster:setup — one-time setup: k3s registries.yaml + k3s restart

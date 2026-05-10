@@ -77,6 +77,36 @@ Usar `strategy.type: Recreate` para evitar conflito de escrita em volumes `local
   - `vaultwarden-secret` (ns: `vaultwarden`) — ADMIN_TOKEN
   - `postgres-credentials` (ns: `shared`) — usuário/senha do banco
 
+### Jobs (batch/v1)
+
+`Job` é imutável após criado — `kubectl apply` falha com `field is immutable` se o template mudar.
+Para atualizar um Job existente no cluster:
+
+```bash
+kubectl delete job <nome> -n <namespace>
+kubectl apply -k k8s/   # ou apply no arquivo específico
+```
+
+Se o Job ainda estiver rodando e não puder ser interrompido, use `--cascade=orphan` para preservar o Pod:
+
+```bash
+kubectl delete job <nome> -n <namespace> --cascade=orphan
+```
+
+### Secrets
+
+Secrets são criados diretamente no cluster via `kubectl create secret` — nunca em YAML commitado.
+Quando um secret precisa ser recriado (ex: rotação de chave), o fluxo é:
+
+```bash
+kubectl delete secret <nome> -n <namespace>
+kubectl create secret generic <nome> --namespace <namespace> --from-literal=KEY=value ...
+# Seguido de rollout restart de todos os Deployments que referenciam o secret
+kubectl rollout restart deployment/<app> -n <namespace>
+```
+
+**Atenção:** deletar um secret antes de recriar causa falha em qualquer Pod que reiniciar nesse intervalo.
+
 ---
 
 ## Comandos de Referência
