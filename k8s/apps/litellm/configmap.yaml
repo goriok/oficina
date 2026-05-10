@@ -21,7 +21,3 @@ data:
       database_url: os.environ/DATABASE_URL
       store_model_in_db: true
 
-    cache:
-      type: redis
-      host: redis.shared.svc.cluster.local
-      port: 6379

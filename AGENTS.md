@@ -109,6 +109,36 @@ kubectl rollout restart deployment/<app> -n <namespace>
 
 ---
 
+## CLI de Automação — mcx
+
+Toda automação do cluster usa `mcx` (Python, instalado via `uv tool`).
+
+```bash
+# Instalar / atualizar
+uv tool install --from ./mcx mcx --force
+
+# Principais comandos
+mcx deploy image <app>          # rsync → build → push → clean
+mcx deploy cluster --yes        # kubectl apply -k k8s/
+mcx deploy all <app> --yes      # image + cluster
+mcx cluster status              # kubectl get pods -A
+mcx cluster ssh                 # SSH interativo
+mcx logs app <app>              # tail do deployment
+mcx job run <app> <cronjob> --yes
+mcx config show                 # inspecionar config resolvida
+
+# Validação de saúde do cluster
+mcx doctor check                # verifica nodes, pods, deployments e PVCs em todos os namespaces monitorados
+mcx doctor check -n <namespace> # limitar a um namespace específico
+```
+
+O comando `mcx doctor check` inspeciona os seguintes namespaces:
+`traefik`, `cloudflare-tunnel`, `registry`, `shared`, `litellm`, `vaultwarden`, `distill-rss`, `taberna`, `monitoring`, `cantinho`
+
+Retorna exit code 1 se houver problemas — adequado para uso em scripts e CI.
+
+---
+
 ## Comandos de Referência
 
 ```bash
