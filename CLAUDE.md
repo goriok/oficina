@@ -73,6 +73,30 @@ Ver [`docs/rfc-backup.md`](docs/rfc-backup.md) para design completo, restore pro
 
 Arquivos por app: `backup-rbac.yaml` (ServiceAccount) + `backup-cronjob.yaml`.
 
+## CLI de automação — mcx
+
+Toda automação do cluster usa `mcx` (Python, instalado via `uv tool`).
+
+```bash
+# Instalar / atualizar
+uv tool install --from ./mcx mcx --force
+
+# Comandos principais
+mcx deploy image <app>          # rsync → build → push → clean
+mcx deploy cluster --yes        # kubectl apply -k k8s/
+mcx deploy all <app> --yes      # image + cluster
+mcx cluster status              # kubectl get pods -A
+mcx cluster ssh                 # SSH interativo
+mcx logs app <app>              # tail do deployment
+mcx logs app <app> --pipeline   # tail do job pipeline mais recente
+mcx job run <app> <cronjob> --yes
+mcx config show                 # inspecionar config resolvida
+```
+
+Configuração: `.env` (CLUSTER_HOST, CLUSTER_USER) + `mcx.toml` (apps, source paths, excludes).
+
+Adicionar novo app: editar `mcx.toml` e `k8s/apps/kustomization.yaml`.
+
 ## Comportamento esperado do Claude
 
 - **Comandos kubectl read-only** (get, describe, logs, kustomize, port-forward): execute autonomamente.

@@ -1,0 +1,32 @@
+[cluster]
+# registry reachable at localhost:5000 from inside the VPS
+registry = "localhost:5000"
+
+[[apps]]
+name = "distill-rss"
+source_path = "../distill-rss"
+kustomize_path = "k8s/apps/distill-rss"
+rsync_excludes = [
+  ".venv/",
+  ".git/",
+  "__pycache__/",
+  ".pytest_cache/",
+  ".ruff_cache/",
+  "*.db",
+  "*.db-shm",
+  "*.db-wal",
+  ".env",
+]
+
+[[apps]]
+name = "taberna"
+source_path = "../taberna"
+kustomize_path = "k8s/apps/taberna"
+rsync_excludes = [
+  ".next/",
+  "node_modules/",
+  ".git/",
+  ".env*",
+  "*.heapsnapshot",
+  ".claude/",
+]

@@ -161,19 +161,46 @@ kubectl get svc -n traefik
 
 ---
 
-## Daily Commands
+## CLI — mcx
+
+All cluster automation is handled by `mcx`, a Python CLI installable via `uv tool`:
+
+```bash
+# Install / update in one step (from repo root)
+./bootstrap.sh
+```
+
+Or manually:
+
+```bash
+uv tool install --from ./mcx mcx --force
+```
+
+Common commands:
+
+| Task                              | Command                                          |
+|-----------------------------------|--------------------------------------------------|
+| Build & push image                | `mcx deploy image <app>`                         |
+| Apply all manifests               | `mcx deploy cluster --yes`                       |
+| Full deploy (image + cluster)     | `mcx deploy all <app> --yes`                     |
+| List all pods                     | `mcx cluster status`                             |
+| SSH into cluster node             | `mcx cluster ssh`                                |
+| Tail app logs                     | `mcx logs app <app>`                             |
+| Tail pipeline job logs            | `mcx logs app <app> --pipeline`                  |
+| Trigger pipeline job manually     | `mcx job run <app> <cronjob> --yes`              |
+| Inspect resolved config           | `mcx config show`                                |
+
+See `mcx/README.md` for full command reference.
+
+### Raw kubectl (troubleshooting)
 
 | Task                              | Command                                                             |
 |-----------------------------------|---------------------------------------------------------------------|
-| Apply all manifests               | `kubectl apply -k k8s/`                                             |
-| List all pods                     | `kubectl get pods -A`                                               |
-| List pods in apps namespace       | `kubectl get pods -n apps`                                          |
+| List pods in a namespace          | `kubectl get pods -n <namespace>`                                   |
 | Check Traefik logs                | `kubectl logs -n traefik deploy/traefik`                            |
 | Check cloudflared logs            | `kubectl logs -n cloudflare-tunnel deploy/cloudflared`              |
-| Check whoami logs                 | `kubectl logs -n apps deploy/whoami`                                |
 | Port-forward Traefik dashboard    | `kubectl port-forward -n traefik svc/traefik 8080:8080`             |
-| Port-forward whoami locally       | `kubectl port-forward -n apps svc/whoami 8081:80`                   |
-| Port-forward postgres locally     | `kubectl port-forward -n apps svc/postgres 5432:5432`               |
+| Port-forward registry             | `kubectl port-forward svc/registry 5000:5000 -n registry`           |
 | Describe a failing pod            | `kubectl describe pod -n <namespace> <pod-name>`                    |
 | Restart a deployment              | `kubectl rollout restart deploy/<name> -n <namespace>`              |
 | Check Kustomize output (dry-run)  | `kubectl kustomize k8s/`                                            |

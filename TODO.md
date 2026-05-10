@@ -25,8 +25,9 @@ Lista de tarefas de manutenção e evolução do cluster.
 
 ### Infraestrutura
 
-- [ ] Adicionar task `litellm:logs` no Taskfile para paridade com `app:logs`
-- [ ] Adicionar task `taberna:logs` no Taskfile
+- [ ] Adicionar `litellm` e `taberna` ao `mcx.toml` para `mcx logs app litellm` / `mcx logs app taberna`
+  - Editar `mcx.toml`: adicionar entrada `[[apps]]` para cada app sem build image (só logs/status)
+  - Não requer `source_path` ou `rsync_excludes` se o app não tem deploy image
 
 ## Concluído
 
