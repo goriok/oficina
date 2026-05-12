@@ -49,34 +49,49 @@ C4Container
 
     Person(user, "Usuário")
     System_Ext(cloudflare, "Cloudflare")
+    System_Ext(deepseek, "DeepSeek API")
 
     System_Boundary(cluster, "Cluster k3s — VPS Contabo (8vCPU / 24GB RAM / Ubuntu 24.04)") {
 
         Container(cloudflared, "cloudflared", "Pod / namespace: cloudflare-tunnel", "Mantém túnel TLS de saída para a Cloudflare. Roteia *.goriok.com → Traefik")
         Container(traefik, "Traefik v3", "Pod / namespace: traefik", "Ingress controller. Resolve regras de Ingress e faz proxy reverso para os serviços de app")
 
-        Container(vaultwarden, "Vaultwarden", "Pod / namespace: vaultwarden", "Servidor compatível com Bitwarden. Gerenciador de senhas self-hosted")
-        Container(whoami, "app-exemplo (whoami)", "Pod / namespace: app-exemplo", "App de teste — responde com info do request recebido")
-        Container(postgres, "PostgreSQL 16", "Pod / namespace: shared", "Banco de dados relacional compartilhado entre apps")
-
-        ContainerDb(pvc_vault, "PVC vaultwarden-data", "PersistentVolumeClaim", "Armazena dados do Vaultwarden em disco")
-        ContainerDb(pvc_pg, "PVC postgres-data", "PersistentVolumeClaim", "Armazena dados do PostgreSQL em disco")
+        Container(vaultwarden, "Vaultwarden", "Pod / namespace: vaultwarden", "Gerenciador de senhas self-hosted — compatível com Bitwarden")
+        Container(distill, "distill-rss", "Pod + CronJobs / namespace: distill-rss", "Monitor de mudanças em feeds RSS com análise LLM")
+        Container(taberna, "Taberna", "Pod / namespace: taberna", "App de debates filosóficos com múltiplos filósofos LLM em paralelo")
+        Container(companions, "Companions", "Pod / namespace: companions", "Chat UI — canais cluster e incidents. Recebe posts do mcx-companion")
+        Container(mcx_companion, "mcx-companion", "Deployment + CronJob / namespace: mcx-companion", "Agente SRE autônomo. Digest diário + webhook de alertas + chat")
+        Container(litellm, "LiteLLM", "Pod / namespace: litellm", "Gateway LLM: virtual keys, budgets, rate limits, métricas Prometheus")
+        Container(postgres, "PostgreSQL 16", "Pod / namespace: shared", "Banco relacional compartilhado: litellm, taberna, companions, distill-rss")
+        Container(redis, "Redis", "Pod / namespace: shared", "Cache compartilhado")
+        Container(qdrant, "Qdrant", "Pod / namespace: qdrant", "Vector DB para memória semântica do mcx-companion (mem0)")
+        Container(registry, "Registry", "Pod / namespace: registry", "Registry de imagens Docker interno — imagens das apps customizadas")
+        Container(monitoring, "kube-prometheus-stack", "namespace: monitoring", "Prometheus + Grafana + node-exporter + kube-state-metrics")
     }
 
     Rel(user, cloudflare, "HTTPS *.goriok.com")
     Rel(cloudflare, cloudflared, "Cloudflare Tunnel (mTLS, outbound)")
-    Rel(cloudflared, traefik, "HTTP interno — traefik.traefik.svc.cluster.local:80")
-    Rel(traefik, vaultwarden, "vault.goriok.com → vaultwarden:80")
-    Rel(traefik, whoami, "whoami.goriok.com → whoami:80")
-    Rel(vaultwarden, pvc_vault, "Leitura/escrita em /data")
-    Rel(postgres, pvc_pg, "Leitura/escrita em /var/lib/postgresql/data")
+    Rel(cloudflared, traefik, "HTTP → traefik.traefik.svc.cluster.local:80")
+    Rel(traefik, vaultwarden, "vault.goriok.com")
+    Rel(traefik, taberna, "taberna.goriok.com")
+    Rel(traefik, companions, "companions.goriok.com")
+    Rel(traefik, mcx_companion, "mcx-companion.goriok.com")
+    Rel(taberna, litellm, "vk-taberna")
+    Rel(distill, litellm, "vk-distill-rss")
+    Rel(mcx_companion, litellm, "vk-mcx-companion")
+    Rel(litellm, deepseek, "deepseek-v4-flash / deepseek-v4-pro")
+    Rel(litellm, postgres, "DATABASE_URL")
+    Rel(mcx_companion, companions, "POST /api/inbox")
+    Rel(mcx_companion, qdrant, "mem0 recall/remember")
+    Rel(mcx_companion, monitoring, "PromQL queries")
 ```
 
 **Pontos-chave:**
-- `cloudflared` é o único ponto de entrada externo — abre conexão de **saída** para a Cloudflare, eliminando necessidade de abrir portas no firewall do VPS.
-- **Traefik** observa os recursos `Ingress` do Kubernetes via RBAC e roteia dinamicamente sem restart.
-- **PostgreSQL** fica no namespace `shared` para ser reutilizável por múltiplas apps — atualmente provisionado mas não conectado ao Vaultwarden (que usa SQLite por padrão via PVC).
-- Todos os dados persistentes usam **PersistentVolumeClaim** com o storage class padrão do k3s (local-path).
+- `cloudflared` é o único ponto de entrada externo — sem portas abertas no VPS.
+- **LiteLLM** centraliza todo acesso a LLMs com virtual keys por app, budgets mensais e rate limits.
+- **PostgreSQL** no namespace `shared` é reutilizado por litellm, taberna, companions e distill-rss.
+- **mcx-companion** é o agente SRE autônomo — veja [`docs/agents.md`](agents.md) para detalhes.
+- O monitoring usa `kube-prometheus-stack` via Helm (chart vendored em `k8s/environments/remote/monitoring/`).
 
 ---
 
@@ -157,36 +172,48 @@ O repositório é a **fonte da verdade** de toda a configuração do cluster. Se
 
 ```
 k8s/
-├── kustomization.yaml          ← Entry point: kubectl apply -k k8s/
 ├── infrastructure/
-│   ├── traefik/                ← Ingress controller (Deployment, Service, RBAC)
-│   └── cloudflare-tunnel/      ← Tunnel daemon (Deployment, ConfigMap)
-│                                  Secret: criado via kubectl (fora do git)
+│   ├── traefik/                ← Ingress controller
+│   ├── cloudflare-tunnel/      ← Tunnel daemon
+│   ├── registry/               ← Registry interno de imagens
+│   └── cluster-health/         ← CronJob de health check (Healthchecks.io)
 ├── shared/
-│   └── postgres/               ← PostgreSQL compartilhado (Deployment, Service, PVC)
-│                                  Secret: criado via kubectl (fora do git)
-└── apps/
-    ├── app-exemplo/            ← whoami — app de teste/validação
-    └── vaultwarden/            ← Gerenciador de senhas (Deployment, Service, Ingress, PVC)
-                                   Secret: criado via kubectl (fora do git)
+│   ├── postgres/               ← PostgreSQL compartilhado
+│   └── redis/                  ← Redis compartilhado
+├── apps/
+│   ├── vaultwarden/            ← Gerenciador de senhas
+│   ├── distill-rss/            ← Monitor de RSS com LLM
+│   ├── taberna/                ← Debates filosóficos LLM
+│   ├── companions/             ← Chat UI do agente
+│   ├── litellm/                ← Gateway LLM (virtual keys, budgets)
+│   ├── mcx-companion/          ← Agente SRE autônomo
+│   ├── qdrant/                 ← Vector DB (memória do agente)
+│   └── app-exemplo/            ← whoami — app de teste
+└── environments/
+    └── remote/
+        ├── kustomization.yaml  ← Entry point: agrega infra + apps + monitoring
+        └── monitoring/         ← kube-prometheus-stack (Helm chart vendored)
+            ├── values.yaml
+            ├── kustomization.yaml
+            ├── crds/           ← CRDs do Prometheus Operator
+            ├── servicemonitor-*.yaml
+            ├── dashboard-*.yaml
+            ├── ingress-grafana.yaml
+            └── ingress-prometheus.yaml
 ```
+
+Deploy: `mcx deploy cluster --yes` (ou `kustomize build k8s/environments/remote | kubectl apply -f -`)
 
 ```mermaid
 flowchart TD
-    GH[GitHub Repository] -->|kubectl apply -k k8s/| Root
+    GH[GitHub Repository] -->|mcx deploy cluster --yes| Root
 
-    Root["k8s/kustomization.yaml"]
-    Root --> Infra["infrastructure/"]
-    Root --> Shared["shared/"]
-    Root --> Apps["apps/"]
+    Root["environments/remote/kustomization.yaml"]
+    Root --> Infra["infrastructure/\n(traefik, cloudflared, registry, cluster-health)"]
+    Root --> Apps["apps/\n(vaultwarden, distill-rss, taberna, companions,\nlitellm, mcx-companion, qdrant)"]
+    Root --> Mon["monitoring/\n(kube-prometheus-stack Helm)"]
 
-    Infra --> Traefik["traefik/\n(Deployment, Service, RBAC)"]
-    Infra --> CFT["cloudflare-tunnel/\n(Deployment, ConfigMap)\n⚠️ Secret fora do git"]
-
-    Shared --> PG["postgres/\n(Deployment, Service, PVC)\n⚠️ Secret fora do git"]
-
-    Apps --> AE["app-exemplo/\n(Deployment, Service, Ingress)"]
-    Apps --> VW["vaultwarden/\n(Deployment, Service, Ingress, PVC)\n⚠️ Secret fora do git"]
+    Apps --> Shared["shared/\n(postgres, redis)"]
 ```
 
 ---
@@ -224,7 +251,20 @@ sequenceDiagram
 | Exposição de serviços | Cloudflare Tunnel (zero porta aberta) | Zero trust networking — VPS sem surface de ataque direta |
 | TLS | Terminado na Cloudflare Edge | Certificado gerenciado automaticamente pelo Cloudflare Free |
 | Ingress controller | Traefik v3 | Leve, dinâmico via Kubernetes Ingress nativo, sem CRDs extras |
-| GitOps engine | Kustomize (manual) | Simplicidade — sem overhead de ArgoCD/Flux na fase inicial |
-| Secrets | kubectl direto no cluster | Nunca expostos no git; sem Vault/Sealed Secrets na v0 |
+| GitOps engine | Kustomize (manual) | Simplicidade — sem overhead de ArgoCD/Flux |
+| Secrets | kubectl direto no cluster | Nunca expostos no git; sem Vault/Sealed Secrets |
 | Storage | local-path (k3s default) | Single-node — sem necessidade de storage distribuído |
-| Banco compartilhado | PostgreSQL no namespace `shared` | Reutilizável entre apps sem um banco por app |
+| Banco compartilhado | PostgreSQL no namespace `shared` | Reutilizável entre apps — litellm, taberna, companions, distill-rss |
+| Cache compartilhado | Redis no namespace `shared` | Cache de sessão e LLM compartilhado |
+| Gateway LLM | LiteLLM | Virtual keys por app, budgets mensais, rate limits, métricas Prometheus |
+| Provider LLM | DeepSeek (v4-flash + v4-pro) | Custo/performance: flash para volume, pro para raciocínio |
+| Agente SRE | mcx-companion (Python + OpenAI SDK) | Digest diário + alertas + chat — acesso read-only ao cluster |
+| Memória do agente | mem0 + Qdrant | Semântica de longo prazo por canal sem state no agente |
+| Monitoring | kube-prometheus-stack (Helm) | Stack completa: Prometheus + Grafana + AlertManager + exporters |
+| CLI de automação | mcx (Python uv tool) | Substitui Taskfile — deploy, logs, jobs, litellm, db, doctor |
+
+## Documentação Relacionada
+
+- [`docs/agents.md`](agents.md) — Arquitetura e operação do mcx-companion
+- [`docs/rfc-backup.md`](rfc-backup.md) — Estratégia de backup (RFC-0001)
+- [`docs/debt-cluster-health.md`](debt-cluster-health.md) — Débito técnico de health checks
