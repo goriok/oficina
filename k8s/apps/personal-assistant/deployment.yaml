@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: personal-assistant
+  namespace: personal-assistant
+  labels:
+    app: personal-assistant
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: personal-assistant
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: personal-assistant
+    spec:
+      containers:
+        - name: personal-assistant
+          image: registry.registry.svc.cluster.local:5000/personal-assistant:latest
+          imagePullPolicy: Always
+          ports:
+            - name: gateway
+              containerPort: 18789
+          env:
+            - name: LITELLM_BASE_URL
+              value: "http://litellm.litellm.svc.cluster.local:4000"
+            - name: LITELLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personal-assistant-secret
+                  key: LITELLM_API_KEY
+            - name: OPENCLAW_GATEWAY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: personal-assistant-secret
+                  key: OPENCLAW_GATEWAY_TOKEN
+            - name: OPENCLAW_HOOKS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: personal-assistant-secret
+                  key: OPENCLAW_HOOKS_TOKEN
+            - name: COMPANIONS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: personal-assistant-secret
+                  key: COMPANIONS_URL
+            - name: COMPANIONS_AGENT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personal-assistant-secret
+                  key: COMPANIONS_AGENT_KEY
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: personal-assistant-secret
+                  key: GITHUB_TOKEN
+          volumeMounts:
+            - name: workspace
+              mountPath: /app/workspace
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 18789
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 18789
+            initialDelaySeconds: 40
+            periodSeconds: 30
+      volumes:
+        - name: workspace
+          persistentVolumeClaim:
+            claimName: personal-assistant-workspace

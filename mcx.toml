@@ -56,3 +56,13 @@ rsync_excludes = [
   ".env*",
 ]
 
+[[apps]]
+name = "personal-assistant"
+source_path = "../personal-assistant"
+kustomize_path = "k8s/apps/personal-assistant"
+rsync_excludes = [
+  ".git/",
+  "node_modules/",
+  ".env*",
+]
+
