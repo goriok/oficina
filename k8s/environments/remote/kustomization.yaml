@@ -4,11 +4,6 @@ kind: Kustomization
 # Remote (k3s VPS) overlay — agrega infra, apps e monitoramento
 
 resources:
-  - ../../base/monitoring/
   - ../../infrastructure/
   - ../../apps/
-  - prometheus/
-  - grafana/
-  - pushgateway/
-  - node-exporter/
-  - kube-state-metrics/
+  - monitoring/

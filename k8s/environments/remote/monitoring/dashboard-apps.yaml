@@ -1,0 +1,464 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-apps
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  apps.json: |-
+    {
+      "__elements": {},
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "type": "dashboard"
+          }
+        ]
+      },
+      "description": "LiteLLM usage and spend per app (by api_key_alias)",
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 0,
+      "links": [],
+      "panels": [
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+          "id": 1,
+          "title": "Overview",
+          "type": "row"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Total accumulated spend per app",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": 0 },
+                  { "color": "yellow", "value": 0.01 },
+                  { "color": "red", "value": 0.1 }
+                ]
+              },
+              "unit": "currencyUSD"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+          "id": 2,
+          "options": {
+            "displayMode": "gradient",
+            "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": false },
+            "maxVizHeight": 300,
+            "minVizHeight": 16,
+            "namePlacement": "auto",
+            "orientation": "horizontal",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "showUnfilled": true,
+            "sizing": "auto",
+            "valueMode": "color"
+          },
+          "pluginVersion": "12.4.0-19274378403",
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "editorMode": "code",
+              "expr": "sort_desc(sum by (api_key_alias) (litellm_spend_metric_total{job=~\"$job\", api_key_alias=~\"$app\"}))",
+              "legendFormat": "{{api_key_alias}}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Total Spend per App",
+          "transformations": [
+            { "id": "reduce", "options": { "reducers": ["lastNotNull"] } },
+            { "id": "sortBy", "options": { "fields": {}, "sort": [{ "desc": true, "field": "Last *" }] } },
+            { "id": "rowsToFields", "options": {} }
+          ],
+          "type": "bargauge"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Total requests per app",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [{ "color": "blue", "value": 0 }]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+          "id": 3,
+          "options": {
+            "displayMode": "lcd",
+            "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": false },
+            "maxVizHeight": 300,
+            "minVizHeight": 16,
+            "namePlacement": "auto",
+            "orientation": "horizontal",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "showUnfilled": true,
+            "sizing": "auto",
+            "valueMode": "color"
+          },
+          "pluginVersion": "12.4.0-19274378403",
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "editorMode": "code",
+              "expr": "sort_desc(sum by (api_key_alias) (litellm_proxy_total_requests_metric_total{job=~\"$job\", api_key_alias=~\"$app\", status_code=\"200\"}))",
+              "legendFormat": "{{api_key_alias}}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Total Successful Requests per App",
+          "transformations": [
+            { "id": "reduce", "options": { "reducers": ["lastNotNull"] } },
+            { "id": "sortBy", "options": { "fields": {}, "sort": [{ "desc": true, "field": "Last *" }] } },
+            { "id": "rowsToFields", "options": {} }
+          ],
+          "type": "bargauge"
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
+          "id": 10,
+          "title": "Over Time",
+          "type": "row"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Spend rate over time per app",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "bars",
+                "fillOpacity": 40,
+                "gradientMode": "none",
+                "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": { "type": "linear" },
+                "showPoints": "auto",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": { "group": "A", "mode": "normal" },
+                "thresholdsStyle": { "mode": "off" }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [{ "color": "green", "value": 0 }]
+              },
+              "unit": "currencyUSD"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 9, "w": 12, "x": 0, "y": 10 },
+          "id": 4,
+          "maxDataPoints": 60,
+          "options": {
+            "legend": { "calcs": ["lastNotNull", "sum"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+            "tooltip": { "hideZeros": true, "mode": "multi", "sort": "desc" }
+          },
+          "pluginVersion": "12.4.0-19274378403",
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "editorMode": "code",
+              "expr": "sum by (api_key_alias) (rate(litellm_spend_metric_total{job=~\"$job\", api_key_alias=~\"$app\"}[$__rate_interval]))",
+              "legendFormat": "{{api_key_alias}}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Spend Rate per App",
+          "type": "timeseries"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Request rate over time per app",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "bars",
+                "fillOpacity": 40,
+                "gradientMode": "none",
+                "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": { "type": "linear" },
+                "showPoints": "auto",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": { "group": "A", "mode": "normal" },
+                "thresholdsStyle": { "mode": "off" }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [{ "color": "green", "value": 0 }]
+              },
+              "unit": "reqps"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 9, "w": 12, "x": 12, "y": 10 },
+          "id": 5,
+          "maxDataPoints": 60,
+          "options": {
+            "legend": { "calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+            "tooltip": { "hideZeros": true, "mode": "multi", "sort": "desc" }
+          },
+          "pluginVersion": "12.4.0-19274378403",
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "editorMode": "code",
+              "expr": "sum by (api_key_alias) (rate(litellm_proxy_total_requests_metric_total{job=~\"$job\", api_key_alias=~\"$app\"}[$__rate_interval]))",
+              "legendFormat": "{{api_key_alias}}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Request Rate per App",
+          "type": "timeseries"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Input and output tokens per app over time",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "bars",
+                "fillOpacity": 40,
+                "gradientMode": "none",
+                "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": { "type": "linear" },
+                "showPoints": "auto",
+                "showValues": false,
+                "spanNulls": false,
+                "stacking": { "group": "A", "mode": "normal" },
+                "thresholdsStyle": { "mode": "off" }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [{ "color": "green", "value": 0 }]
+              },
+              "unit": "short"
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byFrameRefID", "options": "B" },
+                "properties": [{ "id": "custom.transform", "value": "negative-Y" }]
+              }
+            ]
+          },
+          "gridPos": { "h": 9, "w": 24, "x": 0, "y": 19 },
+          "id": 6,
+          "maxDataPoints": 60,
+          "options": {
+            "legend": { "calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+            "tooltip": { "hideZeros": true, "mode": "multi", "sort": "desc" }
+          },
+          "pluginVersion": "12.4.0-19274378403",
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "editorMode": "code",
+              "expr": "sum by (api_key_alias) (rate(litellm_input_tokens_metric_total{job=~\"$job\", api_key_alias=~\"$app\"}[$__rate_interval]))",
+              "legendFormat": "INPUT {{api_key_alias}}",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "editorMode": "code",
+              "expr": "sum by (api_key_alias) (rate(litellm_output_tokens_metric_total{job=~\"$job\", api_key_alias=~\"$app\"}[$__rate_interval]))",
+              "hide": false,
+              "legendFormat": "OUTPUT {{api_key_alias}}",
+              "range": true,
+              "refId": "B"
+            }
+          ],
+          "title": "Token Rate per App (INPUT above / OUTPUT below)",
+          "type": "timeseries"
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 28 },
+          "id": 20,
+          "title": "Errors",
+          "type": "row"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Failed requests per app",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "custom": {
+                "align": "auto",
+                "cellOptions": { "type": "auto" },
+                "footer": { "reducers": [] },
+                "inspect": false
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "purple", "value": 0 },
+                  { "color": "yellow", "value": 5 },
+                  { "color": "red", "value": 50 }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 9, "w": 24, "x": 0, "y": 29 },
+          "id": 21,
+          "maxDataPoints": 60,
+          "options": {
+            "cellHeight": "sm",
+            "showHeader": true,
+            "sortBy": [{ "desc": true, "displayName": "Value" }]
+          },
+          "pluginVersion": "12.4.0-19274378403",
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "sum by (api_key_alias, status_code, requested_model) (litellm_proxy_total_requests_metric_total{job=~\"$job\", api_key_alias=~\"$app\", status_code!=\"200\", status_code!=\"None\"})",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "A"
+            }
+          ],
+          "title": "Failed Requests per App",
+          "transformations": [
+            { "id": "sortBy", "options": { "fields": {}, "sort": [{ "desc": true, "field": "Value" }] } },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": { "Time": true, "__name__": true, "job": true, "instance": true },
+                "includeByName": {},
+                "indexByName": {},
+                "renameByName": {}
+              }
+            }
+          ],
+          "type": "table"
+        }
+      ],
+      "preload": false,
+      "refresh": "1m",
+      "schemaVersion": 42,
+      "tags": ["apps", "litellm"],
+      "templating": {
+        "list": [
+          {
+            "current": { "selected": false, "text": "prometheus", "value": "prometheus" },
+            "name": "datasource",
+            "options": [],
+            "query": "prometheus",
+            "refresh": 1,
+            "regex": "",
+            "type": "datasource"
+          },
+          {
+            "current": {},
+            "definition": "label_values(litellm_proxy_total_requests_metric_created, job)",
+            "name": "job",
+            "options": [],
+            "query": {
+              "qryType": 1,
+              "query": "label_values(litellm_proxy_total_requests_metric_created, job)",
+              "refId": "PrometheusVariableQueryEditor-VariableQuery"
+            },
+            "refresh": 1,
+            "regex": "",
+            "type": "query"
+          },
+          {
+            "allValue": ".*",
+            "current": {},
+            "definition": "label_values(litellm_proxy_total_requests_metric_total, api_key_alias)",
+            "includeAll": true,
+            "multi": true,
+            "name": "app",
+            "label": "App (key alias)",
+            "options": [],
+            "query": {
+              "qryType": 1,
+              "query": "label_values(litellm_proxy_total_requests_metric_total, api_key_alias)",
+              "refId": "PrometheusVariableQueryEditor-VariableQuery"
+            },
+            "refresh": 2,
+            "regex": "",
+            "sort": 1,
+            "type": "query"
+          }
+        ]
+      },
+      "time": { "from": "now-24h", "to": "now" },
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "Apps Usage",
+      "version": 0,
+      "weekStart": "",
+      "id": null,
+      "gnetId": null
+    }

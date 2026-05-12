@@ -1,6 +1,6 @@
 import typer
 
-from mcx.commands import cluster, config, db, deploy, doctor, job, logs
+from mcx.commands import cluster, config, db, deploy, doctor, job, litellm, logs
 
 app = typer.Typer(
     name="mcx",
@@ -15,3 +15,4 @@ app.add_typer(job.app, name="job")
 app.add_typer(config.app, name="config")
 app.add_typer(db.app, name="db")
 app.add_typer(doctor.app, name="doctor")
+app.add_typer(litellm.app, name="litellm")

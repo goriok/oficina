@@ -17,6 +17,22 @@ spec:
       labels:
         app: litellm
     spec:
+      initContainers:
+        - name: migrate
+          image: ghcr.io/berriai/litellm-database:main-latest
+          imagePullPolicy: Always
+          command:
+            - sh
+            - -c
+            - |
+              cd /usr/lib/python3.13/site-packages/litellm/proxy
+              prisma db push --schema schema.prisma --accept-data-loss
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: litellm-secret
+                  key: DATABASE_URL
       containers:
         - name: litellm
           image: ghcr.io/berriai/litellm-database:main-latest

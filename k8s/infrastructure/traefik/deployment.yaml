@@ -67,6 +67,9 @@ spec:
             - --providers.kubernetesingress
             - --entrypoints.web.address=:80
             - --entrypoints.websecure.address=:443
+            - --entrypoints.metrics.address=:9100
+            - --metrics.prometheus=true
+            - --metrics.prometheus.entrypoint=metrics
             - --log.level=INFO
           ports:
             - name: web
@@ -75,6 +78,8 @@ spec:
               containerPort: 443
             - name: dashboard
               containerPort: 8080
+            - name: metrics
+              containerPort: 9100
           resources:
             requests:
               cpu: "100m"

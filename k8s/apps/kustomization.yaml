@@ -7,3 +7,6 @@ resources:
   - distill-rss/
   - litellm/
   - taberna/
+  - companions/
+  - mcx-companion/
+  - qdrant/

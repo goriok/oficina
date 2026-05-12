@@ -16,7 +16,7 @@ class ConfigError(Exception):
 class AppConfig:
     name: str
     source_path: str
-    kustomize_path: str
+    kustomize_path: str = ""
     rsync_excludes: list[str] = field(default_factory=list)
 
 
@@ -65,7 +65,7 @@ def load_config(repo_root: Path, _environ: dict | None = None) -> Config:
         AppConfig(
             name=a["name"],
             source_path=a["source_path"],
-            kustomize_path=a["kustomize_path"],
+            kustomize_path=a.get("kustomize_path", ""),
             rsync_excludes=a.get("rsync_excludes", []),
         )
         for a in data.get("apps", [])

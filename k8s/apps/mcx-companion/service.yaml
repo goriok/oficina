@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcx-companion
+  namespace: mcx-companion
+spec:
+  selector:
+    app: mcx-companion
+  ports:
+    - port: 80
+      targetPort: 8080
+      name: http

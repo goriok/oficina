@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcx-companion
+  namespace: mcx-companion
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcx-companion
+  template:
+    metadata:
+      labels:
+        app: mcx-companion
+    spec:
+      serviceAccountName: mcx-companion
+      containers:
+        - name: mcx-companion
+          image: registry.registry.svc.cluster.local:5000/mcx-companion:latest
+          imagePullPolicy: Always
+          command: ["mcx-companion", "serve"]
+          ports:
+            - containerPort: 8080
+              name: http
+          envFrom:
+            - secretRef:
+                name: mcx-companion-secret
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10

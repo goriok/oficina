@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: companions
+  namespace: companions
+  labels:
+    app: companions
+spec:
+  type: ClusterIP
+  selector:
+    app: companions
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

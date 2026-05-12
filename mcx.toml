@@ -30,3 +30,29 @@ rsync_excludes = [
   "*.heapsnapshot",
   ".claude/",
 ]
+
+[[apps]]
+name = "companions"
+source_path = "../companions"
+kustomize_path = "k8s/apps/companions"
+rsync_excludes = [
+  ".next/",
+  "node_modules/",
+  ".git/",
+  ".env*",
+  "*.heapsnapshot",
+  ".claude/",
+]
+
+[[apps]]
+name = "mcx-companion"
+source_path = "../mcx-companion"
+kustomize_path = "k8s/apps/mcx-companion"
+rsync_excludes = [
+  ".git/",
+  ".venv/",
+  "__pycache__/",
+  "*.pyc",
+  ".env*",
+]
+

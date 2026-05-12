@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mcx-companion
+  namespace: mcx-companion
+  labels:
+    app: mcx-companion
+spec:
+  rules:
+    - host: mcx-companion.goriok.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: mcx-companion
+                port:
+                  number: 80

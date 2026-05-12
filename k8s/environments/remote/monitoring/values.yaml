@@ -1,0 +1,59 @@
+alertmanager:
+  enabled: false
+
+grafana:
+  admin:
+    existingSecret: grafana-secret
+    userKey: admin-user
+    passwordKey: admin-password
+  persistence:
+    enabled: true
+    size: 2Gi
+  sidecar:
+    dashboards:
+      enabled: true
+      searchNamespace: ALL
+      label: grafana_dashboard
+      labelValue: "1"
+    datasources:
+      enabled: true
+  plugins:
+    - grafana-clock-panel
+  # Do not create ingress via chart — managed separately via ingress-grafana.yaml
+  ingress:
+    enabled: false
+
+prometheus:
+  prometheusSpec:
+    retention: 15d
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+    # Pick up ServiceMonitors from any namespace (not only those with chart labels)
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    resources:
+      requests:
+        cpu: "200m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+  ingress:
+    enabled: false
+
+kubeStateMetrics:
+  enabled: true
+
+nodeExporter:
+  enabled: true
+
+prometheusOperator:
+  admissionWebhooks:
+    patch:
+      enabled: true

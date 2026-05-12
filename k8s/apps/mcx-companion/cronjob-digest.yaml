@@ -1,0 +1,32 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mcx-companion-digest
+  namespace: mcx-companion
+spec:
+  schedule: "0 8 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          serviceAccountName: mcx-companion
+          restartPolicy: Never
+          containers:
+            - name: mcx-companion
+              image: registry.registry.svc.cluster.local:5000/mcx-companion:latest
+              imagePullPolicy: Always
+              command: ["mcx-companion", "digest"]
+              envFrom:
+                - secretRef:
+                    name: mcx-companion-secret
+              resources:
+                requests:
+                  cpu: "100m"
+                  memory: "128Mi"
+                limits:
+                  cpu: "500m"
+                  memory: "256Mi"

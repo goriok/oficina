@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: companions
+  namespace: companions
+  labels:
+    app: companions
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: companions
+  strategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: companions
+    spec:
+      terminationGracePeriodSeconds: 30
+      initContainers:
+        - name: migrate
+          image: registry.registry.svc.cluster.local:5000/companions:latest
+          imagePullPolicy: Always
+          command: ["node", "/migrate/node_modules/.bin/prisma", "migrate", "deploy"]
+          workingDir: /app
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: companions-secret
+                  key: DATABASE_URL
+      containers:
+        - name: companions
+          image: registry.registry.svc.cluster.local:5000/companions:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: companions-secret
+                  key: DATABASE_URL
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: companions-secret
+                  key: SESSION_SECRET
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 2

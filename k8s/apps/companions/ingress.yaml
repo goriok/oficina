@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: companions
+  namespace: companions
+  labels:
+    app: companions
+spec:
+  rules:
+    - host: companions.goriok.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: companions
+                port:
+                  number: 80
