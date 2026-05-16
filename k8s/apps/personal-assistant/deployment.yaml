@@ -26,7 +26,10 @@ spec:
               containerPort: 18789
           env:
             - name: LITELLM_BASE_URL
-              value: "http://litellm.litellm.svc.cluster.local:4000"
+              valueFrom:
+                secretKeyRef:
+                  name: personal-assistant-secret
+                  key: LITELLM_BASE_URL
             - name: LITELLM_API_KEY
               valueFrom:
                 secretKeyRef:
@@ -71,14 +74,18 @@ spec:
             httpGet:
               path: /
               port: 18789
-            initialDelaySeconds: 20
+            initialDelaySeconds: 30
             periodSeconds: 15
+            timeoutSeconds: 15
+            failureThreshold: 5
           livenessProbe:
             httpGet:
               path: /
               port: 18789
-            initialDelaySeconds: 40
+            initialDelaySeconds: 120
             periodSeconds: 30
+            timeoutSeconds: 15
+            failureThreshold: 5
       volumes:
         - name: workspace
           persistentVolumeClaim:
