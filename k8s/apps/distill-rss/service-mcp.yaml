@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: distill-rss-mcp
+  namespace: distill-rss
+  labels:
+    app: distill-rss
+    component: mcp
+spec:
+  selector:
+    app: distill-rss
+  ports:
+    - name: mcp-stdio
+      port: 8001
+      targetPort: 8001

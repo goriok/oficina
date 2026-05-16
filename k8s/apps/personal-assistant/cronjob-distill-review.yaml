@@ -1,0 +1,48 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: personal-assistant-distill-review
+  namespace: personal-assistant
+  labels:
+    app: personal-assistant
+    role: cron
+spec:
+  schedule: "0 9 * * *"
+  timeZone: "America/Sao_Paulo"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: trigger
+              image: curlimages/curl:latest
+              command:
+                - sh
+                - -c
+                - |
+                  TODAY=$(date +%Y-%m-%d)
+                  BODY="Revise o digest de AI engineering de hoje (${TODAY}) do distill-rss (perfil: ai, URL: http://distill-rss.distill-rss.svc.cluster.local/api/digest/${TODAY}). Para cada artigo com recommended_action=deep_read ou relevance_score >= 0.8: avalie se ha algo acionavel para (1) configurar ou melhorar o code-agent (Claude Code, opencode, agentes em ~/.config/opencode), ou (2) mudar algo no my-cluster (infra, apps, monitoring). Seja direto: liste so o que for genuinamente acionavel com uma sugestao concreta. Se nao houver nada acionavel hoje, diga isso em uma frase. Posta o resultado no canal assistant do companions."
+                  PAYLOAD=$(printf '{"path":"companions/chat","channel":"assistant","body":"%s"}' "$BODY")
+                  curl -fsS -X POST \
+                    -H "Content-Type: application/json" \
+                    -H "Authorization: Bearer ${OPENCLAW_HOOKS_TOKEN}" \
+                    -d "$PAYLOAD" \
+                    "http://personal-assistant.personal-assistant.svc.cluster.local:18789/hooks/companions/chat"
+              env:
+                - name: OPENCLAW_HOOKS_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: personal-assistant-secret
+                      key: OPENCLAW_HOOKS_TOKEN
+              resources:
+                requests:
+                  cpu: "10m"
+                  memory: "16Mi"
+                limits:
+                  cpu: "50m"
+                  memory: "32Mi"
