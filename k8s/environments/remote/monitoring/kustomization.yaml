@@ -9,6 +9,20 @@ helmCharts:
     namespace: monitoring
     valuesFile: values.yaml
 
+  - name: loki
+    repo: https://grafana.github.io/helm-charts
+    version: "6.29.0"
+    releaseName: loki
+    namespace: monitoring
+    valuesFile: loki-values.yaml
+
+  - name: promtail
+    repo: https://grafana.github.io/helm-charts
+    version: "6.16.6"
+    releaseName: promtail
+    namespace: monitoring
+    valuesFile: promtail-values.yaml
+
 resources:
   - ingress-grafana.yaml
   - ingress-prometheus.yaml
@@ -21,3 +35,4 @@ resources:
   - dashboard-postgres.yaml
   - dashboard-redis.yaml
   - dashboard-apps.yaml
+  - datasource-loki.yaml
