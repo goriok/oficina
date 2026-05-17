@@ -268,3 +268,5 @@ sequenceDiagram
 - [`docs/agents.md`](agents.md) — Arquitetura e operação do mcx-companion
 - [`docs/rfc-backup.md`](rfc-backup.md) — Estratégia de backup (RFC-0001)
 - [`docs/debt-cluster-health.md`](debt-cluster-health.md) — Débito técnico de health checks
+- [`docs/madr/0006-cloudflare-como-camada-de-tenancy.md`](madr/0006-cloudflare-como-camada-de-tenancy.md) — Estratégia de tenancy na camada Cloudflare (DNS, Access, Tunnel, R2)
+- [`docs/concepts/09-plataforma-transparente-fora-do-cluster.md`](concepts/09-plataforma-transparente-fora-do-cluster.md) — Capacidades de plataforma fornecidas por serviços externos

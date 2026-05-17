@@ -9,6 +9,33 @@ Instruções para o Claude Code ao trabalhar neste repositório.
 Repositório GitOps do cluster **oficina** — k3s pessoal (single-node) em VPS Contabo.
 Stack: k3s, Traefik v3, cloudflared (Cloudflare Tunnel), Kustomize, Cloudflare Free.
 
+## Plataforma multi-tenant
+
+O `my-cluster` é uma **plataforma compartilhada** — não um homelab solo. Tenants e suas regras:
+
+| Tenant     | Prefixo de namespace | Propósito                                      |
+|------------|----------------------|------------------------------------------------|
+| `personal` | `personal-`          | Apps pessoais do dono                          |
+| `family`   | `family-`            | Apps compartilhados com familiares             |
+| `work`     | `work-`              | Contexto profissional do dono                  |
+| `shared`   | —                    | Plataforma: postgres, redis, registry, traefik |
+| `sandbox`  | `sandbox-`           | Experimentação descartável, sem SLO            |
+
+**Regras operacionais:**
+
+- Ao propor novo app, **pergunte a qual tenant pertence** antes de gerar manifests.
+- Namespaces seguem `<tenant>-<app>` (ex: `family-jellyfin`). Apps existentes sem prefixo são `personal` por convenção — não renomear sem RFC.
+- Todo recurso de tenant deve ter as labels:
+  ```yaml
+  labels:
+    platform.oficina/tenant: personal   # personal|family|work|shared|sandbox
+    platform.oficina/app: vaultwarden
+    platform.oficina/owner: igorsoaresalves@gmail.com
+  ```
+- **Nunca proponha** que app em `family`/`work` consuma recursos de outro tenant — somente `shared`.
+
+Leitura de fundo: [`docs/concepts/01-multi-tenancy-em-kubernetes.md`](docs/concepts/01-multi-tenancy-em-kubernetes.md)
+
 ## Estrutura
 
 ```

@@ -4,6 +4,34 @@ GitOps repository for a self-hosted Kubernetes cluster running on a Contabo VPS,
 
 ---
 
+## Platform Model
+
+**oficina is a small multi-tenant platform, not a single-user homelab.** The cluster is shared across different contexts and people, each with their own namespace boundary, resource policies, and ownership.
+
+| Tenant     | Who                                | Purpose                                       | Namespace prefix | Examples                          |
+|------------|------------------------------------|-----------------------------------------------|------------------|-----------------------------------|
+| `personal` | Cluster owner                      | Owner's personal apps                         | `personal-`      | vaultwarden, distill-rss          |
+| `family`   | Family members                     | Shared apps for the household                 | `family-`        | jellyfin, nextcloud (future)      |
+| `work`     | Owner in professional context      | Work tooling, isolated from personal          | `work-`          | (future)                          |
+| `shared`   | Platform (consumed by all tenants) | Infrastructure services for all tenants       | —                | postgres, redis, registry, traefik|
+| `sandbox`  | Anyone, experimental               | Throwaway POCs, no SLO                        | `sandbox-`       | app-exemplo                       |
+
+**Dependency rule:** tenants consume `shared`, but **never** consume resources from another tenant directly.
+
+**Authentication and DNS** are handled transparently by Cloudflare (Access, Tunnel, R2) — see [`docs/madr/0006-cloudflare-como-camada-de-tenancy.md`](docs/madr/0006-cloudflare-como-camada-de-tenancy.md) for the tenancy strategy at the Cloudflare layer.
+
+Every resource must carry three labels identifying its tenant, app, and owner:
+```yaml
+labels:
+  platform.oficina/tenant: personal
+  platform.oficina/app: vaultwarden
+  platform.oficina/owner: igorsoaresalves@gmail.com
+```
+
+See [`docs/concepts/01-multi-tenancy-em-kubernetes.md`](docs/concepts/01-multi-tenancy-em-kubernetes.md) for the full multi-tenancy model, [`docs/madr/`](docs/madr/) for architectural decisions, and [`CONTRIBUTING.md`](CONTRIBUTING.md) for onboarding workflows.
+
+---
+
 ## Overview
 
 This repository contains all Kubernetes manifests managed via Kustomize. The cluster is a single-node k3s instance exposed to the internet exclusively through a Cloudflare Tunnel — no open ports required on the VPS. Traefik v3 acts as the in-cluster ingress controller, routing traffic from the tunnel to individual applications.
@@ -209,12 +237,15 @@ See `mcx/README.md` for full command reference.
 
 ## Adding a New Application
 
-1. Create a new directory under `k8s/apps/<app-name>/`.
-2. Add `namespace.yaml`, `deployment.yaml`, `service.yaml`, `ingress.yaml`, and `kustomization.yaml`.
+Before creating any manifest, decide which **tenant** the app belongs to (see [Platform Model](#platform-model) above). The namespace follows `<tenant>-<app>` and every resource must carry the three `platform.oficina/` labels. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full step-by-step, including how to onboard a new tenant.
+
+1. Decide the tenant (e.g. `family`) and create `k8s/apps/family-<app>/`.
+2. Add `namespace.yaml` (with tenant labels), `deployment.yaml`, `service.yaml`, `ingress.yaml`, and `kustomization.yaml`.
 3. Add the new directory to `k8s/apps/kustomization.yaml` under `resources`.
 4. Add the new hostname to `k8s/infrastructure/cloudflare-tunnel/configmap.yaml` ingress rules.
 5. Add a DNS CNAME record in Cloudflare for the new hostname.
-6. Run `kubectl apply -k k8s/`.
+6. Create any secrets directly on the cluster via `kubectl create secret` — never commit them.
+7. Run `kubectl apply -k k8s/`.
 
 ---
 

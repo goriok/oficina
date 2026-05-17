@@ -13,6 +13,40 @@ Toda a configuração do cluster é declarada em YAML e gerenciada via Kustomize
 
 ---
 
+## Plataforma multi-tenant
+
+O `my-cluster` é uma plataforma compartilhada com 5 tenants: `personal`, `family`, `work`, `shared`, `sandbox`. Ver regras operacionais completas em [`CLAUDE.md`](CLAUDE.md#plataforma-multi-tenant).
+
+**Convenção de namespace:** `<tenant>-<app>` (ex: `family-jellyfin`, `personal-vaultwarden`).
+
+**Labels obrigatórias** em todo recurso de tenant (Namespace, Deployment, Service, Ingress, PVC):
+
+```yaml
+metadata:
+  labels:
+    platform.oficina/tenant: personal   # personal|family|work|shared|sandbox
+    platform.oficina/app: vaultwarden
+    platform.oficina/owner: igorsoaresalves@gmail.com
+```
+
+**Namespace de tenant — template:**
+
+```yaml
+# k8s/apps/<tenant>-<app>/namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: personal-vaultwarden
+  labels:
+    platform.oficina/tenant: personal
+    platform.oficina/app: vaultwarden
+    platform.oficina/owner: igorsoaresalves@gmail.com
+```
+
+Apps existentes sem prefixo (ex: `vaultwarden`, `distill-rss`) são consideradas `personal` via label — não renomear namespaces sem RFC de migração.
+
+Leitura de fundo: [`docs/concepts/02-namespace-como-fronteira-de-tenant.md`](docs/concepts/02-namespace-como-fronteira-de-tenant.md)
+
 ## Estrutura do Repositório
 
 ```
