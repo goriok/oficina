@@ -24,6 +24,7 @@ helmCharts:
     valuesFile: promtail-values.yaml
 
 resources:
+  - namespace.yaml
   - ingress-grafana.yaml
   - ingress-prometheus.yaml
   - servicemonitor-traefik.yaml

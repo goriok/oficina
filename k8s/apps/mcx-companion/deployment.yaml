@@ -14,9 +14,24 @@ spec:
         app: mcx-companion
     spec:
       serviceAccountName: mcx-companion
+      imagePullSecrets:
+        - name: mgc-registry-credentials
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: tier
+                operator: In
+                values:
+                - standard
+      tolerations:
+      - key: tier
+        value: standard
+        effect: NoSchedule
       containers:
         - name: mcx-companion
-          image: registry.registry.svc.cluster.local:5000/mcx-companion:latest
+          image: container-registry.br-se1.magalu.cloud/my-registry/mcx-companion:latest
           imagePullPolicy: Always
           command: ["mcx-companion", "serve"]
           ports:

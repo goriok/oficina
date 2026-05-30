@@ -2,6 +2,19 @@ alertmanager:
   enabled: false
 
 grafana:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: tier
+            operator: In
+            values:
+            - essential
+  tolerations:
+  - key: tier
+    value: essential
+    effect: NoSchedule
   admin:
     existingSecret: grafana-secret
     userKey: admin-user
@@ -26,6 +39,19 @@ grafana:
 prometheus:
   prometheusSpec:
     retention: 15d
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: tier
+              operator: In
+              values:
+              - essential
+    tolerations:
+    - key: tier
+      value: essential
+      effect: NoSchedule
     storageSpec:
       volumeClaimTemplate:
         spec:
@@ -49,11 +75,51 @@ prometheus:
 
 kubeStateMetrics:
   enabled: true
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: tier
+            operator: In
+            values:
+            - essential
+  tolerations:
+  - key: tier
+    operator: Equal
+    value: essential
+    effect: NoSchedule
 
 nodeExporter:
   enabled: true
+  # DaemonSet — must run on all nodes to collect metrics everywhere
+  tolerations:
+  - key: CriticalAddonsOnly
+    operator: Exists
+    effect: NoSchedule
+  - key: tier
+    operator: Exists
+    effect: NoSchedule
 
 prometheusOperator:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: tier
+            operator: In
+            values:
+            - essential
+  tolerations:
+  - key: tier
+    value: essential
+    effect: NoSchedule
   admissionWebhooks:
     patch:
       enabled: true
+      tolerations:
+      - key: tier
+        operator: Equal
+        value: essential
+        effect: NoSchedule

@@ -1,0 +1,24 @@
+#!/bin/bash
+set -euo pipefail
+
+# Escreve o token em arquivo com permissão restrita — evita exposição via /proc e ps
+install -m 600 /dev/null /tmp/k3s-token-init
+printf '%s' "${token}" > /tmp/k3s-token-init
+
+%{ if tier == "essential" ~}
+EXTRA_ARGS="--node-label tier=essential --node-taint tier=essential:NoSchedule"
+%{ else ~}
+EXTRA_ARGS="--node-label tier=standard"
+%{ endif ~}
+
+# Aguarda o control-plane aceitar conexões TCP antes de tentar o join
+until nc -z -w5 "${server_ip}" 6443 2>/dev/null; do
+  sleep 10
+done
+
+K3S_URL="https://${server_ip}:6443" \
+K3S_TOKEN_FILE=/tmp/k3s-token-init \
+curl -sfL https://get.k3s.io | sh -s - agent $EXTRA_ARGS \
+  2>&1 | tee /var/log/k3s-install.log
+
+rm -f /tmp/k3s-token-init

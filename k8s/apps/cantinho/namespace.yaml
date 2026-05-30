@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cantinho
+  labels:
+    app: cantinho
+    platform.oficina/tenant: personal
+    platform.oficina/app: cantinho
+    platform.oficina/owner: igorsoaresalves

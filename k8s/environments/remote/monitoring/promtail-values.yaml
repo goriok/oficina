@@ -24,6 +24,13 @@ tolerations:
   - key: node-role.kubernetes.io/master
     operator: Exists
     effect: NoSchedule
+  # Cover all cluster tiers so promtail runs on every node
+  - key: CriticalAddonsOnly
+    operator: Exists
+    effect: NoSchedule
+  - key: tier
+    operator: Exists
+    effect: NoSchedule
 
 serviceMonitor:
   enabled: true

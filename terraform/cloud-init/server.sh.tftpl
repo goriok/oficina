@@ -1,0 +1,26 @@
+#!/bin/bash
+set -euo pipefail
+
+# Escreve o token em arquivo com permissão restrita — evita exposição via /proc e ps
+install -m 600 /dev/null /tmp/k3s-token-init
+printf '%s' "${token}" > /tmp/k3s-token-init
+
+K3S_TOKEN_FILE=/tmp/k3s-token-init \
+curl -sfL https://get.k3s.io | sh -s - server \
+  --cluster-init \
+  --node-taint "CriticalAddonsOnly=true:NoSchedule" \
+  --disable traefik \
+  --disable servicelb \
+  2>&1 | tee /var/log/k3s-install.log
+
+# Remove arquivo temporário — o k3s persiste o token em /var/lib/rancher/k3s/server/node-token
+rm -f /tmp/k3s-token-init
+
+# Copia kubeconfig para ubuntu com permissão restrita (sem 644 global)
+until [ -f /etc/rancher/k3s/k3s.yaml ]; do sleep 2; done
+install -m 600 -o ubuntu -g ubuntu /etc/rancher/k3s/k3s.yaml /home/ubuntu/.kube/config 2>/dev/null || \
+  (mkdir -p /home/ubuntu/.kube && install -m 600 -o ubuntu /etc/rancher/k3s/k3s.yaml /home/ubuntu/.kube/config)
+
+until kubectl get nodes 2>/dev/null | grep -q "Ready"; do
+  sleep 5
+done

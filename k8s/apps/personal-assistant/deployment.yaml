@@ -17,9 +17,24 @@ spec:
       labels:
         app: personal-assistant
     spec:
+      imagePullSecrets:
+        - name: mgc-registry-credentials
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: tier
+                operator: In
+                values:
+                - essential
+      tolerations:
+      - key: tier
+        value: essential
+        effect: NoSchedule
       containers:
         - name: personal-assistant
-          image: registry.registry.svc.cluster.local:5000/personal-assistant:latest
+          image: container-registry.br-se1.magalu.cloud/my-registry/personal-assistant:latest
           imagePullPolicy: Always
           ports:
             - name: gateway

@@ -1,0 +1,139 @@
+---
+# Monta o volume NVMe de 40GB (oficina-postgres-data) no oficina-agent-essential.
+#
+# Uso:
+#   ansible-playbook -i ansible/inventory.ini ansible/playbooks/mount-postgres-volume.yml
+#
+# Para dry-run (apenas inspecionar, sem aplicar mudanças):
+#   ansible-playbook ... --check --diff
+#
+# Pré-requisitos:
+#   - Volume mgc_block_storage_volumes.postgres já anexado via Terraform
+#   - Playbook NÃO formata se já houver filesystem (proteção contra reexecução acidental)
+#
+# Variáveis (com defaults seguros):
+#   nvme_device:     path do device (default: /dev/sdb — verificar com lsblk antes)
+#   mount_point:     onde montar (default: /mnt/postgres-data)
+#   fs_type:         filesystem (default: ext4)
+#   pv_size_check:   tamanho mínimo esperado em GB para assertion (default: 38)
+
+- name: Montar volume NVMe para postgres
+  hosts: oficina-agent-essential
+  become: true
+
+  vars:
+    nvme_device: /dev/sdb
+    mount_point: /mnt/postgres-data
+    fs_type: ext4
+
+  tasks:
+    # -------------------------------------------------------------------------
+    # 1. Descoberta e validação do device
+    # -------------------------------------------------------------------------
+    - name: Verificar se o device existe
+      ansible.builtin.stat:
+        path: "{{ nvme_device }}"
+      register: device_stat
+
+    - name: Falhar se o device não existe
+      ansible.builtin.fail:
+        msg: >
+          Device {{ nvme_device }} não encontrado em {{ inventory_hostname }}.
+          Verifique se o volume está anexado (terraform apply) e use lsblk para
+          confirmar o nome correto do device. Passe -e nvme_device=/dev/<nome>.
+      when: not device_stat.stat.exists
+
+    - name: Inspecionar filesystem existente no device
+      ansible.builtin.command:
+        cmd: blkid -o value -s TYPE {{ nvme_device }}
+      register: blkid_result
+      changed_when: false
+      failed_when: false
+
+    - name: Mostrar filesystem detectado (ou vazio)
+      ansible.builtin.debug:
+        msg: >
+          Device {{ nvme_device }}:
+          filesystem={{ blkid_result.stdout | default('(nenhum — será formatado)') }}
+
+    # -------------------------------------------------------------------------
+    # 2. Formatação — apenas se o device estiver vazio
+    # -------------------------------------------------------------------------
+    - name: Formatar device com ext4 (apenas se sem filesystem)
+      ansible.builtin.command:
+        cmd: mkfs.ext4 -L postgres-data {{ nvme_device }}
+      when: blkid_result.stdout == ""
+      register: mkfs_result
+
+    - name: Confirmar formatação
+      ansible.builtin.debug:
+        msg: "Device {{ nvme_device }} formatado com ext4."
+      when: mkfs_result is defined and mkfs_result.changed
+
+    - name: Aviso — device já tem filesystem, formatação ignorada
+      ansible.builtin.debug:
+        msg: >
+          ATENÇÃO: {{ nvme_device }} já contém filesystem {{ blkid_result.stdout }}.
+          Formatação ignorada para preservar dados. Se precisar reformatar,
+          execute mkfs manualmente após garantir que não há dados relevantes.
+      when: blkid_result.stdout != ""
+
+    # -------------------------------------------------------------------------
+    # 3. Mountpoint
+    # -------------------------------------------------------------------------
+    - name: Criar mountpoint {{ mount_point }}
+      ansible.builtin.file:
+        path: "{{ mount_point }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    # -------------------------------------------------------------------------
+    # 4. fstab — entrada idempotente por UUID (mais seguro que path do device)
+    # -------------------------------------------------------------------------
+    - name: Obter UUID do device
+      ansible.builtin.command:
+        cmd: blkid -o value -s UUID {{ nvme_device }}
+      register: uuid_result
+      changed_when: false
+
+    - name: Falhar se UUID não encontrado
+      ansible.builtin.fail:
+        msg: >
+          Não foi possível obter UUID de {{ nvme_device }}.
+          O device pode não ter filesystem válido.
+      when: uuid_result.stdout == ""
+
+    - name: Adicionar entrada no /etc/fstab (por UUID)
+      ansible.posix.mount:
+        path: "{{ mount_point }}"
+        src: "UUID={{ uuid_result.stdout }}"
+        fstype: "{{ fs_type }}"
+        opts: defaults,noatime
+        state: mounted
+        # state: mounted garante que monta agora E persiste no fstab
+
+    # -------------------------------------------------------------------------
+    # 5. Validação final
+    # -------------------------------------------------------------------------
+    - name: Verificar se mount está ativo
+      ansible.builtin.command:
+        cmd: mountpoint -q {{ mount_point }}
+      changed_when: false
+      register: mountpoint_check
+
+    - name: Mostrar uso do volume montado
+      ansible.builtin.command:
+        cmd: df -h {{ mount_point }}
+      changed_when: false
+      register: df_result
+
+    - name: Status final do volume
+      ansible.builtin.debug:
+        msg: |
+          Volume montado com sucesso.
+          UUID: {{ uuid_result.stdout }}
+          Mountpoint: {{ mount_point }}
+          {{ df_result.stdout }}
+          Entrada fstab ativa — persistirá após reboot.

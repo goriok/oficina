@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cantinho-config
+  namespace: cantinho
+  labels:
+    app: cantinho
+    platform.oficina/tenant: personal
+    platform.oficina/app: cantinho
+    platform.oficina/owner: igorsoaresalves
+data:
+  LLM_PROVIDER: "litellm"
+  LLM_MODEL: "deepseek-v4-flash"
+  LITELLM_BASE_URL: "http://litellm.litellm.svc.cluster.local/v1"

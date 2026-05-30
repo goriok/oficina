@@ -23,6 +23,19 @@ spec:
         spec:
           restartPolicy: Never
           serviceAccountName: distill-rss-backup
+          tolerations:
+          - key: tier
+            value: standard
+            effect: NoSchedule
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: tier
+                    operator: In
+                    values:
+                    - standard
           containers:
             - name: backup
               image: postgres:16

@@ -8,6 +8,8 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
+  storageClassName: ""             # Sem StorageClass — binding estático
+  volumeName: postgres-nvme        # Binding direto ao PV do NVMe
   resources:
     requests:
-      storage: 5Gi
+      storage: 38Gi

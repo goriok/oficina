@@ -1,0 +1,6 @@
+# Copie para terraform.tfvars e preencha (nunca commitar terraform.tfvars)
+mgc_api_key    = "sua-api-key-aqui"
+k3s_token      = "token-longo-aleatorio-aqui"  # openssl rand -hex 32
+operator_cidr  = "SEU_IP/32"                    # curl ifconfig.me
+ssh_public_key = "ssh-ed25519 AAAA..."
+# r2_account_id NÃO é variável Terraform — faz parte do backend.hcl (endpoint URL)

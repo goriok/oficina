@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: postgres-nvme
+  labels:
+    # Labels informativas — não usadas para binding (binding é por volumeName no PVC)
+    app: postgres
+    storage.oficina/type: nvme-block
+    storage.oficina/device: oficina-postgres-data
+spec:
+  capacity:
+    storage: 38Gi                  # 40GB físico menos margem para o SO e filesystem
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ""             # Sem StorageClass — binding estático manual
+  persistentVolumeReclaimPolicy: Retain
+  # Binding manual: apenas o PVC com volumeName=postgres-nvme pode usar este PV.
+  # Sem claimRef aqui — deixamos o PVC fazer a referência (mais flexível para migração).
+  hostPath:
+    path: /mnt/postgres-data/pgdata  # Subdiretório para evitar conflito com lost+found do ext4
+    type: DirectoryOrCreate
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - oficina-agent-essential

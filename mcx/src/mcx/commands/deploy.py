@@ -62,7 +62,7 @@ def _deploy_image(cfg: Config, app_cfg: AppConfig) -> None:
         f"{user_host}:{build_dir}/",
     ])
     shell.run(["ssh", user_host, f"podman build -t {image} {build_dir}/"])
-    shell.run(["ssh", user_host, f"podman push --tls-verify=false {image}"])
+    shell.run(["ssh", user_host, f"podman push {image}"])
     shell.run(["ssh", user_host, f"rm -rf {build_dir}"])
 
 

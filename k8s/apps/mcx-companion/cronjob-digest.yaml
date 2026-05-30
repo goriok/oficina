@@ -15,9 +15,24 @@ spec:
         spec:
           serviceAccountName: mcx-companion
           restartPolicy: Never
+          imagePullSecrets:
+            - name: mgc-registry-credentials
+          tolerations:
+          - key: tier
+            value: standard
+            effect: NoSchedule
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: tier
+                    operator: In
+                    values:
+                    - standard
           containers:
             - name: mcx-companion
-              image: registry.registry.svc.cluster.local:5000/mcx-companion:latest
+              image: container-registry.br-se1.magalu.cloud/my-registry/mcx-companion:latest
               imagePullPolicy: Always
               command: ["mcx-companion", "digest"]
               envFrom:

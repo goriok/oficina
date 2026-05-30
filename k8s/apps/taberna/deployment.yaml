@@ -18,9 +18,24 @@ spec:
         app: taberna
     spec:
       terminationGracePeriodSeconds: 30
+      imagePullSecrets:
+        - name: mgc-registry-credentials
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: tier
+                operator: In
+                values:
+                - standard
+      tolerations:
+      - key: tier
+        value: standard
+        effect: NoSchedule
       containers:
         - name: taberna
-          image: registry.registry.svc.cluster.local:5000/taberna:latest
+          image: container-registry.br-se1.magalu.cloud/my-registry/taberna:latest
           imagePullPolicy: Always
           ports:
             - name: http
@@ -52,7 +67,7 @@ spec:
               port: 3000
             initialDelaySeconds: 30
             periodSeconds: 10
-            failureThreshold: 3
+            failureThreshold: 12
           livenessProbe:
             httpGet:
               path: /api/health

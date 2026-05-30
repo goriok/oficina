@@ -15,9 +15,24 @@ spec:
         component: migration
     spec:
       restartPolicy: OnFailure
+      imagePullSecrets:
+        - name: mgc-registry-credentials
+      tolerations:
+      - key: tier
+        value: standard
+        effect: NoSchedule
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: tier
+                operator: In
+                values:
+                - standard
       containers:
         - name: migration
-          image: registry.registry.svc.cluster.local:5000/companions:latest
+          image: container-registry.br-se1.magalu.cloud/my-registry/companions:latest
           imagePullPolicy: Always
           command: ["npx", "prisma", "migrate", "deploy"]
           env:

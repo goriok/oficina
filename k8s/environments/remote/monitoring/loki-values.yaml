@@ -24,6 +24,19 @@ deploymentMode: SingleBinary
 
 singleBinary:
   replicas: 1
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: tier
+            operator: In
+            values:
+            - essential
+  tolerations:
+  - key: tier
+    value: essential
+    effect: NoSchedule
   resources:
     requests:
       cpu: "100m"
@@ -63,4 +76,10 @@ bloomGateway:
 
 # Expose as ClusterIP — Promtail e Grafana acessam internamente
 gateway:
+  enabled: false
+
+# Desabilita caches memcached — não necessários em SingleBinary e causam Pending por falta de tolerations
+chunksCache:
+  enabled: false
+resultsCache:
   enabled: false

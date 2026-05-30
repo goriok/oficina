@@ -1,0 +1,19 @@
+# Copie para backend.hcl e preencha (nunca commitar backend.hcl)
+# Use com: terraform init -backend-config=backend.hcl
+
+bucket = "oficina-tfstate"
+key    = "cluster/terraform.tfstate"
+region = "auto"
+
+endpoints = {
+  s3 = "https://<SEU_ACCOUNT_ID>.r2.cloudflarestorage.com"
+}
+
+access_key = "<R2_ACCESS_KEY_ID>"
+secret_key = "<R2_SECRET_KEY>"
+
+skip_region_validation      = true
+skip_credentials_validation = true
+skip_requesting_account_id  = true
+skip_s3_checksum            = true
+use_lockfile                 = true

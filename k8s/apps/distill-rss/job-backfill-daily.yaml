@@ -15,9 +15,24 @@ spec:
         role: backfill
     spec:
       restartPolicy: Never
+      imagePullSecrets:
+        - name: mgc-registry-credentials
+      tolerations:
+      - key: tier
+        value: standard
+        effect: NoSchedule
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: tier
+                operator: In
+                values:
+                - standard
       containers:
         - name: distill-rss-backfill-daily
-          image: registry.registry.svc.cluster.local:5000/distill-rss:latest
+          image: container-registry.br-se1.magalu.cloud/my-registry/distill-rss:latest
           command:
             - sh
             - -c

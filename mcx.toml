@@ -1,6 +1,6 @@
 [cluster]
 # registry reachable at localhost:5000 from inside the VPS
-registry = "localhost:5000"
+registry = "container-registry.br-se1.magalu.cloud/my-registry"
 
 [[apps]]
 name = "distill-rss"
@@ -64,5 +64,20 @@ rsync_excludes = [
   ".git/",
   "node_modules/",
   ".env*",
+]
+
+[[apps]]
+name = "cantinho"
+source_path = "../cantinho"
+kustomize_path = "k8s/apps/cantinho"
+rsync_excludes = [
+  ".git/",
+  ".venv/",
+  "__pycache__/",
+  "*.pyc",
+  ".pytest_cache/",
+  ".ruff_cache/",
+  ".env*",
+  "*.db",
 ]
 

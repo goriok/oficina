@@ -1,0 +1,64 @@
+---
+# Configura e inicia k3s-agent nos workers do cluster oficina.
+# Uso:
+#   ansible-playbook -i ansible/inventory.ini ansible/playbooks/k3s-agents.yml \
+#     -e k3s_token=<token>
+#
+# Para um agent específico:
+#   ansible-playbook ... --limit oficina-agent-essential
+
+- name: Configurar k3s agents
+  hosts: k3s_agents
+  become: true
+
+  tasks:
+    - name: Verifica se k3s-agent já está ativo
+      ansible.builtin.systemd:
+        name: k3s-agent
+      register: k3s_agent_status
+      ignore_errors: true
+
+    - name: Instala k3s agent (se não instalado)
+      when: k3s_agent_status.status is not defined or
+            k3s_agent_status.status.ActiveState != "active"
+      block:
+        - name: Download e instala k3s via instalador oficial
+          ansible.builtin.shell:
+            cmd: curl -sfL https://get.k3s.io | sh -s - agent
+            creates: /usr/local/bin/k3s
+          environment:
+            K3S_URL: "{{ k3s_server_url }}"
+            K3S_TOKEN: "{{ k3s_token }}"
+            INSTALL_K3S_EXEC: >-
+              --node-label tier={{ k3s_tier }}
+              {% if k3s_taint %}--node-taint tier={{ k3s_tier }}:NoSchedule{% endif %}
+
+    - name: Escreve environment file do k3s-agent
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/k3s-agent.service.env
+        mode: "0600"
+        content: |
+          K3S_URL={{ k3s_server_url }}
+          K3S_TOKEN={{ k3s_token }}
+
+    - name: Recarrega systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Habilita e inicia k3s-agent
+      ansible.builtin.systemd:
+        name: k3s-agent
+        enabled: true
+        state: restarted
+
+    - name: Aguarda k3s-agent ficar ativo
+      ansible.builtin.systemd:
+        name: k3s-agent
+      register: agent_status
+      until: agent_status.status.ActiveState == "active"
+      retries: 12
+      delay: 5
+
+    - name: Status final do k3s-agent
+      ansible.builtin.debug:
+        msg: "k3s-agent em {{ inventory_hostname }}: {{ agent_status.status.ActiveState }}"

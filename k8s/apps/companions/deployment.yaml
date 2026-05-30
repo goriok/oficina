@@ -18,9 +18,24 @@ spec:
         app: companions
     spec:
       terminationGracePeriodSeconds: 30
+      imagePullSecrets:
+        - name: mgc-registry-credentials
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: tier
+                operator: In
+                values:
+                - standard
+      tolerations:
+      - key: tier
+        value: standard
+        effect: NoSchedule
       initContainers:
         - name: migrate
-          image: registry.registry.svc.cluster.local:5000/companions:latest
+          image: container-registry.br-se1.magalu.cloud/my-registry/companions:latest
           imagePullPolicy: Always
           command: ["node", "/migrate/node_modules/.bin/prisma", "migrate", "deploy"]
           workingDir: /app
@@ -32,7 +47,7 @@ spec:
                   key: DATABASE_URL
       containers:
         - name: companions
-          image: registry.registry.svc.cluster.local:5000/companions:latest
+          image: container-registry.br-se1.magalu.cloud/my-registry/companions:latest
           imagePullPolicy: Always
           ports:
             - name: http

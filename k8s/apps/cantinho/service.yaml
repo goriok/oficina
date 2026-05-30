@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cantinho
+  namespace: cantinho
+  labels:
+    app: cantinho
+    platform.oficina/tenant: personal
+    platform.oficina/app: cantinho
+    platform.oficina/owner: igorsoaresalves
+spec:
+  selector:
+    app: cantinho
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000

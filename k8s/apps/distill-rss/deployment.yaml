@@ -18,9 +18,24 @@ spec:
         app: distill-rss
     spec:
       terminationGracePeriodSeconds: 10
+      imagePullSecrets:
+        - name: mgc-registry-credentials
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: tier
+                operator: In
+                values:
+                - standard
+      tolerations:
+      - key: tier
+        value: standard
+        effect: NoSchedule
       containers:
         - name: distill-rss
-          image: registry.registry.svc.cluster.local:5000/distill-rss:latest
+          image: container-registry.br-se1.magalu.cloud/my-registry/distill-rss:latest
           imagePullPolicy: Always
           command: ["distill", "serve", "--host", "0.0.0.0", "--port", "8000", "--all-profiles"]
           ports:
@@ -71,7 +86,7 @@ spec:
             periodSeconds: 5
             failureThreshold: 2
         - name: distill-rss-mcp
-          image: registry.registry.svc.cluster.local:5000/distill-rss:latest
+          image: container-registry.br-se1.magalu.cloud/my-registry/distill-rss:latest
           imagePullPolicy: Always
           command: ["distill-mcp"]
           ports:
