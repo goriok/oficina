@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+from pathlib import Path
 import typer
 from rich.console import Console
 
@@ -49,6 +50,13 @@ def _kustomize_apply(kustomize_path: str) -> None:
         raise typer.Exit(rc)
 
 
+def _has_migrator_stage(source_path: str) -> bool:
+    dockerfile = Path(source_path) / "Dockerfile"
+    if not dockerfile.exists():
+        return False
+    return "AS migrator" in dockerfile.read_text()
+
+
 def _deploy_image(cfg: Config, app_cfg: AppConfig) -> None:
     user_host = f"{cfg.cluster_user}@{cfg.cluster_host}"
     image = cfg.image(app_cfg)
@@ -63,6 +71,12 @@ def _deploy_image(cfg: Config, app_cfg: AppConfig) -> None:
     ])
     shell.run(["ssh", user_host, f"podman build -t {image} {build_dir}/"])
     shell.run(["ssh", user_host, f"podman push {image}"])
+
+    if _has_migrator_stage(app_cfg.source_path):
+        migrator_image = cfg.migrator_image(app_cfg)
+        shell.run(["ssh", user_host, f"podman build --target migrator -t {migrator_image} {build_dir}/"])
+        shell.run(["ssh", user_host, f"podman push {migrator_image}"])
+
     shell.run(["ssh", user_host, f"rm -rf {build_dir}"])
 
 

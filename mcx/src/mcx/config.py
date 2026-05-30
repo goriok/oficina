@@ -36,6 +36,9 @@ class Config:
     def image(self, app: AppConfig) -> str:
         return f"{self.registry}/{app.name}:latest"
 
+    def migrator_image(self, app: AppConfig) -> str:
+        return f"{self.registry}/{app.name}:migrator"
+
     def remote_build_dir(self, app: AppConfig) -> str:
         return f"/tmp/build-{app.name}"
 

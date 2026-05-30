@@ -32,9 +32,8 @@ spec:
                 - standard
       containers:
         - name: migration
-          image: container-registry.br-se1.magalu.cloud/my-registry/taberna:latest
+          image: container-registry.br-se1.magalu.cloud/my-registry/taberna:migrator
           imagePullPolicy: Always
-          command: ["npx", "prisma", "migrate", "deploy"]
           env:
             - name: DATABASE_URL
               valueFrom:
