@@ -36,6 +36,14 @@ O `my-cluster` é uma **plataforma compartilhada** — não um homelab solo. Ten
 
 Leitura de fundo: [`docs/concepts/01-multi-tenancy-em-kubernetes.md`](docs/concepts/01-multi-tenancy-em-kubernetes.md)
 
+## O que Nunca Fazer
+
+- NUNCA faça `kubectl delete` sem especificar namespace explicitamente e confirmar com o usuário
+- NUNCA commite `secret.yaml` ou `*.secret.yaml` — o `.gitignore` já bloqueia, mas nunca force
+- NUNCA proponha app de tenant `family` ou `work` consumindo recursos de outro tenant — somente `shared`
+- NUNCA aplique manifests sem verificar `kubectl diff -k k8s/` antes
+- NUNCA renomeie namespaces existentes sem RFC documentado em `docs/`
+
 ## Estrutura
 
 ```
