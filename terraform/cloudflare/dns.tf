@@ -11,8 +11,9 @@
 #     -H "Authorization: Bearer $CF_API_TOKEN" | jq '.result[] | {name, id, type}'
 
 locals {
-  tunnel_id       = "8b7166a2-efbf-4c4a-86af-acd6ea54ee44"
-  tunnel_cname    = "${local.tunnel_id}.cfargotunnel.com"
+  # Referência ao resource do tunnel — cria dependência explícita no grafo Terraform.
+  # Se o tunnel for recriado, o CNAME de todos os records atualiza automaticamente.
+  tunnel_cname    = "${cloudflare_zero_trust_tunnel_cloudflared.main.id}.cfargotunnel.com"
 
   # Hostnames flat (tenant personal — não migrar, conforme MADR 0006-A)
   personal_hostnames = {

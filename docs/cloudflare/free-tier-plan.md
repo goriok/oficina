@@ -8,6 +8,26 @@ Plano para aproveitar o free tier Cloudflare que ainda não está sendo utilizad
 
 ---
 
+## Status de Implementação
+
+Atualizado em 2026-05-31 após implementação da IaC.
+
+| Item | Status | Observações |
+|---|---|---|
+| WAF Custom Rules | Implementado — apply pendente | `terraform/cloudflare/waf.tf` — 3 regras ativas, 2 reservadas |
+| Email Routing | Implementado — apply pendente | `terraform/cloudflare/email.tf` — `alerts@` e `cluster@goriok.com` → Gmail. PRÉ-REQUISITO: confirmar endereço destino por email após primeiro apply |
+| AI Gateway | Implementado — apply pendente | `terraform/cloudflare/ai_gateway.tf` — cache 1h, rate limit 100 req/min sliding. Adicionado output DeepSeek além de OpenAI/Anthropic |
+| DNS Records (IaC) | Implementado — import pendente | `terraform/cloudflare/dns.tf` — todos os 8 hostnames em IaC. NÃO estava no plano original: adição para fechar GitOps gap do MADR 0006. Requer `terraform import` antes do apply |
+| Tunnel (IaC) | Implementado — import pendente | `terraform/cloudflare/tunnel.tf` — tunnel existente trazido para Terraform. Requer `tunnel_secret` extraído do cluster e `terraform import` |
+| Workers status-page | Criado — deploy pendente | `workers/status-page/` — código funcional. BLOQUEADOR: substituir `REPLACE_WITH_KV_NAMESPACE_ID` no `wrangler.toml` antes do `wrangler deploy` |
+| Workers webhook-relay | Criado — deploy pendente | `workers/webhook-relay/` — código funcional. PRÉ-REQUISITO: `wrangler secret put DISCORD_WEBHOOK_URL` e `wrangler secret put RELAY_TOKEN` antes do deploy |
+| Litellm patch (AI Gateway) | Criado — opt-in, apply pendente | `k8s/apps/litellm/patches/ai-gateway-configmap.yaml` — NÃO registrado no kustomization.yaml (opt-in explícito). Substituir `<ACCOUNT_ID>` antes de ativar. Implementado para DeepSeek; plano original previa OpenAI/Anthropic |
+| CoreDNS patch (Gateway DNS) | Criado — opt-in, apply pendente | `k8s/infrastructure/coredns/patches/gateway-dns-forwarder.yaml` — NÃO registrado no kustomization.yaml da infra (opt-in). PRÉ-REQUISITO: criar DNS Location em Zero Trust > Gateway e obter IPs reais da Location |
+| Workers AI fallback (litellm) | Pendente | Fase 4 — Mês 2+. Nenhum arquivo criado ainda |
+| Cloudflare Access Groups | Pendente | MADR 0006-B — fora do escopo do Terraform atual (ver `IMPORT.md`) |
+
+---
+
 ## Estado Atual
 
 | Serviço | Em uso | Como está configurado |
@@ -451,3 +471,148 @@ Mês 2+ — Workers AI como fallback (Fase 4):
   10. Adicionar cloudflare-ai como provider no litellm config
   11. Testar fallback com provider primário indisponível
 ```
+
+---
+
+## Ordem de Apply (Sequência Segura)
+
+Sequência concreta de execução dado o estado atual da implementação. Todos os arquivos IaC já existem — falta apenas executar os comandos abaixo em ordem.
+
+### Pré-requisitos manuais (fazer antes de qualquer apply)
+
+```bash
+# 1. Copiar e preencher as variáveis do Terraform
+cp terraform/cloudflare/terraform.tfvars.example terraform/cloudflare/terraform.tfvars
+# Preencher: cloudflare_api_token, zone_id, account_id
+# tunnel_secret: extrair do cluster com:
+#   kubectl get secret cloudflare-tunnel-credentials \
+#     -n cloudflare-tunnel \
+#     -o jsonpath='{.data.credentials\.json}' | base64 -d | jq -r '.s'
+
+# 2. Inicializar o backend Terraform (mesmo R2 do state MGC, key separada)
+cd terraform/cloudflare
+terraform init \
+  -backend-config=../backend.hcl \
+  -backend-config="key=cloudflare/terraform.tfstate"
+```
+
+### Etapa 1 — Import de recursos existentes (DNS + Tunnel)
+
+Consultar `terraform/cloudflare/IMPORT.md` para obter os IDs necessários via API Cloudflare.
+
+```bash
+cd terraform/cloudflare
+
+# Importar DNS records existentes (IDs obtidos via curl — ver IMPORT.md)
+terraform import cloudflare_dns_record.vault        "$ZONE_ID/<RECORD_ID_vault>"
+terraform import cloudflare_dns_record.companions   "$ZONE_ID/<RECORD_ID_companions>"
+terraform import cloudflare_dns_record.litellm      "$ZONE_ID/<RECORD_ID_litellm>"
+terraform import cloudflare_dns_record.taberna      "$ZONE_ID/<RECORD_ID_taberna>"
+terraform import cloudflare_dns_record.ai_rss       "$ZONE_ID/<RECORD_ID_ai-rss>"
+terraform import cloudflare_dns_record.grafana      "$ZONE_ID/<RECORD_ID_grafana>"
+terraform import cloudflare_dns_record.prometheus   "$ZONE_ID/<RECORD_ID_prometheus>"
+terraform import cloudflare_dns_record.mcx_companion "$ZONE_ID/<RECORD_ID_mcx-companion>"
+
+# Importar tunnel existente
+terraform import cloudflare_zero_trust_tunnel_cloudflared.main \
+  "$ACCOUNT_ID/8b7166a2-efbf-4c4a-86af-acd6ea54ee44"
+
+# Validar: plan deve mostrar zero changes nos recursos importados
+terraform plan
+```
+
+### Etapa 2 — Apply: WAF + Email Routing + AI Gateway (Fases 1 e 2)
+
+```bash
+cd terraform/cloudflare
+
+# Verificar o plan antes de aplicar
+terraform plan -out=tfplan
+
+# Aplicar (cria WAF rules, Email Routing e AI Gateway — não altera recursos importados)
+terraform apply tfplan
+```
+
+**Pós-apply obrigatório para Email Routing:** o Cloudflare envia um email de verificação para `igorsoaresalves@gmail.com`. O encaminhamento só funciona após confirmar o link nesse email.
+
+**Pós-apply para AI Gateway:** obter a URL do output e atualizar o patch do litellm:
+
+```bash
+terraform output ai_gateway_deepseek_url
+# Copiar o account_id da URL e substituir <ACCOUNT_ID> em:
+# k8s/apps/litellm/patches/ai-gateway-configmap.yaml
+```
+
+### Etapa 3 — Ativar patch do litellm (opt-in, Fase 2)
+
+```bash
+# 1. Editar k8s/apps/litellm/patches/ai-gateway-configmap.yaml
+#    Substituir <ACCOUNT_ID> pelo account_id real
+
+# 2. Registrar o patch no kustomization.yaml do litellm:
+#    Adicionar em patchesStrategicMerge:
+#      - patches/ai-gateway-configmap.yaml
+
+# 3. Validar dry-run antes de aplicar
+kubectl kustomize k8s/apps/litellm/
+
+# 4. Aplicar (mostrar ao operador, não executar diretamente)
+# kubectl apply -k k8s/apps/litellm/
+
+# 5. Validar logs
+# mcx logs app litellm
+```
+
+### Etapa 4 — Deploy dos Workers (Fase 3)
+
+**status-page — BLOQUEADOR: criar KV namespace primeiro**
+
+```bash
+# Opção A: via dashboard
+# Dashboard > Workers & Pages > KV > Create a namespace "oficina-status"
+
+# Opção B: via wrangler CLI
+cd workers/status-page
+wrangler kv namespace create STATUS
+# Copiar o id retornado e substituir REPLACE_WITH_KV_NAMESPACE_ID no wrangler.toml
+
+# Deploy após substituir o KV namespace ID
+wrangler deploy
+```
+
+**webhook-relay — configurar secrets antes do deploy**
+
+```bash
+cd workers/webhook-relay
+
+# Configurar secrets (não commitados)
+wrangler secret put DISCORD_WEBHOOK_URL
+wrangler secret put RELAY_TOKEN
+
+# Deploy
+wrangler deploy
+```
+
+### Etapa 5 — Gateway DNS via CoreDNS (opt-in, Fase 3)
+
+**PRÉ-REQUISITO MANUAL:** criar uma DNS Location em Zero Trust > Gateway > DNS Locations e obter os IPs reais da Location criada. Os IPs `172.64.36.1` e `172.64.36.2` no patch são defaults — cada Location tem IPs únicos.
+
+```bash
+# 1. Após obter os IPs reais da DNS Location, editar o patch se necessário:
+# k8s/infrastructure/coredns/patches/gateway-dns-forwarder.yaml
+
+# 2. Ativar o patch: adicionar "coredns" em resources do k8s/infrastructure/kustomization.yaml
+
+# 3. Validar dry-run (nunca aplicar sem validar — impacto em toda resolução DNS do cluster)
+kubectl kustomize k8s/infrastructure/
+
+# 4. Aplicar (mostrar ao operador, não executar diretamente)
+# kubectl apply -k k8s/infrastructure/
+
+# 5. Validar resolução DNS após apply
+# kubectl run -it --rm dns-test --image=busybox --restart=Never -- nslookup google.com
+```
+
+### Etapa 6 — Workers AI fallback no litellm (Fase 4 — Mês 2+)
+
+Nenhum arquivo criado ainda. Executar quando Fases 1-3 estiverem estáveis. Ver seção "Fase 4 — IA" deste documento para o design.

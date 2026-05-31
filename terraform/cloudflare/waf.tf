@@ -36,11 +36,12 @@ resource "cloudflare_ruleset" "waf_custom" {
   }
 
   # Regra 3: Challenge para User-Agents automatizados em rotas sensíveis
-  # Permite healthchecks internos (User-Agent vazio ou padrão k8s)
+  # Escopo: só aplica no vault.goriok.com para não bloquear webhook-relay (Go runtime)
+  # e outros callers legítimos com Go-http-client em outros hostnames.
   rules {
     action      = "managed_challenge"
-    description = "Challenge para scrapers/bots genéricos em rotas de app"
-    expression  = "(http.user_agent contains \"python-requests\" or http.user_agent contains \"Go-http-client\") and not http.request.uri.path contains \"/healthz\" and not http.request.uri.path contains \"/health\""
+    description = "Challenge para scrapers/bots genéricos no Vaultwarden"
+    expression  = "(http.user_agent contains \"python-requests\" or http.user_agent contains \"Go-http-client\") and http.host eq \"vault.goriok.com\" and not http.request.uri.path contains \"/healthz\" and not http.request.uri.path contains \"/health\""
     enabled     = true
   }
 

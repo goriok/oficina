@@ -1,0 +1,13 @@
+name = "oficina-status"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+
+[[kv_namespaces]]
+binding = "STATUS"
+# Substituir pelo KV namespace ID após criar em:
+# Dashboard > Workers & Pages > KV > Create a namespace "oficina-status"
+# ou: wrangler kv namespace create STATUS
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# Deploy: wrangler deploy
+# Ou via mcx: mcx deploy worker status-page  (extensão futura do mcx)

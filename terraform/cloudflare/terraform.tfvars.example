@@ -2,3 +2,4 @@
 cloudflare_api_token = "seu-token-aqui"
 zone_id              = "zone-id-do-goriok.com"
 account_id           = "account-id-da-conta"
+tunnel_secret        = "base64-do-campo-s-do-credentials.json"  # ver IMPORT.md para como extrair
