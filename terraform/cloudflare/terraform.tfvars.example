@@ -1,0 +1,4 @@
+# Copie para terraform.tfvars e preencha — nunca commitar terraform.tfvars
+cloudflare_api_token = "seu-token-aqui"
+zone_id              = "zone-id-do-goriok.com"
+account_id           = "account-id-da-conta"
