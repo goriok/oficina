@@ -25,13 +25,13 @@ resource "cloudflare_email_routing_rule" "alerts" {
   enabled  = true
   priority = 1
 
-  matchers {
+  matcher {
     type  = "literal"
     field = "to"
     value = "alerts@goriok.com"
   }
 
-  actions {
+  action {
     type  = "forward"
     value = [cloudflare_email_routing_address.operator.email]
   }
@@ -44,13 +44,13 @@ resource "cloudflare_email_routing_rule" "cluster" {
   enabled  = true
   priority = 2
 
-  matchers {
+  matcher {
     type  = "literal"
     field = "to"
     value = "cluster@goriok.com"
   }
 
-  actions {
+  action {
     type  = "forward"
     value = [cloudflare_email_routing_address.operator.email]
   }

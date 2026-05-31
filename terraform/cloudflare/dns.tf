@@ -5,7 +5,7 @@
 # A regra wildcard no cloudflared (configmap.yaml) roteia *.goriok.com → Traefik.
 #
 # Para importar registros existentes (criados manualmente no dashboard):
-#   terraform import cloudflare_dns_record.vault <ZONE_ID>/<RECORD_ID>
+#   terraform import cloudflare_record.vault <ZONE_ID>/<RECORD_ID>
 # O RECORD_ID é obtido via:
 #   curl -s "https://api.cloudflare.com/client/v4/zones/<ZONE_ID>/dns_records" \
 #     -H "Authorization: Bearer $CF_API_TOKEN" | jq '.result[] | {name, id, type}'
@@ -28,7 +28,7 @@ locals {
   }
 }
 
-resource "cloudflare_dns_record" "vault" {
+resource "cloudflare_record" "vault" {
   zone_id = var.zone_id
   name    = "vault"
   type    = "CNAME"
@@ -37,7 +37,7 @@ resource "cloudflare_dns_record" "vault" {
   ttl     = 1 # Auto quando proxied = true
 }
 
-resource "cloudflare_dns_record" "companions" {
+resource "cloudflare_record" "companions" {
   zone_id = var.zone_id
   name    = "companions"
   type    = "CNAME"
@@ -46,7 +46,7 @@ resource "cloudflare_dns_record" "companions" {
   ttl     = 1
 }
 
-resource "cloudflare_dns_record" "litellm" {
+resource "cloudflare_record" "litellm" {
   zone_id = var.zone_id
   name    = "litellm"
   type    = "CNAME"
@@ -55,7 +55,7 @@ resource "cloudflare_dns_record" "litellm" {
   ttl     = 1
 }
 
-resource "cloudflare_dns_record" "taberna" {
+resource "cloudflare_record" "taberna" {
   zone_id = var.zone_id
   name    = "taberna"
   type    = "CNAME"
@@ -64,7 +64,7 @@ resource "cloudflare_dns_record" "taberna" {
   ttl     = 1
 }
 
-resource "cloudflare_dns_record" "ai_rss" {
+resource "cloudflare_record" "ai_rss" {
   zone_id = var.zone_id
   name    = "ai-rss"
   type    = "CNAME"
@@ -73,7 +73,7 @@ resource "cloudflare_dns_record" "ai_rss" {
   ttl     = 1
 }
 
-resource "cloudflare_dns_record" "grafana" {
+resource "cloudflare_record" "grafana" {
   zone_id = var.zone_id
   name    = "grafana"
   type    = "CNAME"
@@ -82,7 +82,7 @@ resource "cloudflare_dns_record" "grafana" {
   ttl     = 1
 }
 
-resource "cloudflare_dns_record" "prometheus" {
+resource "cloudflare_record" "prometheus" {
   zone_id = var.zone_id
   name    = "prometheus"
   type    = "CNAME"
@@ -91,7 +91,7 @@ resource "cloudflare_dns_record" "prometheus" {
   ttl     = 1
 }
 
-resource "cloudflare_dns_record" "mcx_companion" {
+resource "cloudflare_record" "mcx_companion" {
   zone_id = var.zone_id
   name    = "mcx-companion"
   type    = "CNAME"

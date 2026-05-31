@@ -1,24 +1,16 @@
 # AI Gateway — Cloudflare
 #
-# Proxy centralizado para chamadas LLM de litellm e personal-assistant.
-# Benefícios: cache semântico, logs centralizados, rate limiting, fallback.
+# O recurso cloudflare_ai_gateway nao existe no provider cloudflare/cloudflare 4.x.
+# O gateway e criado via dashboard Cloudflare ou Wrangler CLI:
+#   wrangler ai gateway create oficina-cluster
 #
-# Outputs expõem as URLs base — copiar para terraform.tfvars.example após apply.
+# Este arquivo expoe os outputs de URL para uso em patches Kustomize e scripts.
+# As URLs sao deterministicas: dependem apenas do account_id, nao de state.
 #
-# Limite a vigiar: 100k logs/mês no free. Logging para ao exceder; requests
-# continuam passando normalmente.
-
-resource "cloudflare_ai_gateway" "main" {
-  account_id = var.account_id
-  name       = "oficina-cluster"
-
-  cache_invalidate_on_update = false
-  cache_ttl                  = 3600
-
-  rate_limiting_interval  = 60
-  rate_limiting_limit     = 100
-  rate_limiting_technique = "sliding"
-}
+# Apos criar o gateway no dashboard, configurar:
+#   - Cache TTL: 3600s
+#   - Rate limiting: 100 req/min, sliding window
+#   - Log retention: padrao free (100k logs/mes)
 
 output "ai_gateway_openai_url" {
   description = "URL base para requests OpenAI via AI Gateway"
