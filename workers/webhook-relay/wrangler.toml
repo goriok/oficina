@@ -1,0 +1,9 @@
+name = "oficina-webhook-relay"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+
+# Variáveis de ambiente — definir via wrangler secret:
+#   wrangler secret put DISCORD_WEBHOOK_URL
+#   wrangler secret put RELAY_TOKEN
+#
+# Deploy: wrangler deploy

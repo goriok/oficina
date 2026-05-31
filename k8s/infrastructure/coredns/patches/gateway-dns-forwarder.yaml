@@ -1,0 +1,34 @@
+# Patch: redireciona resolução DNS do cluster para o Cloudflare Gateway.
+#
+# Os IPs 172.64.36.1 e 172.64.36.2 são os resolvers do Cloudflare Gateway
+# (Zero Trust > Gateway > DNS Locations). Substitua pelos IPs da sua DNS Location
+# caso sejam diferentes — cada Location tem IPs únicos gerados pelo dashboard.
+#
+# PRÉ-REQUISITO: criar uma DNS Location em Zero Trust > Gateway > DNS Locations
+# antes de aplicar este patch. Sem a Location configurada os IPs não existem.
+#
+# Este patch NÃO está registrado no kustomization.yaml da infrastructure por ser opt-in.
+# Ativar adicionando "coredns" em resources do k8s/infrastructure/kustomization.yaml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns
+  namespace: kube-system
+data:
+  Corefile: |
+    .:53 {
+        errors
+        health { lameduck 5s }
+        ready
+        kubernetes cluster.local in-addr.arpa ip6.arpa {
+          pods insecure
+          fallthrough in-addr.arpa ip6.arpa
+          ttl 30
+        }
+        prometheus :9153
+        forward . 172.64.36.1 172.64.36.2 { prefer_udp }
+        cache 30
+        loop
+        reload
+        loadbalance
+    }
