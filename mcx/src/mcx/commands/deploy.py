@@ -69,15 +69,15 @@ def _deploy_image(cfg: Config, app_cfg: AppConfig) -> None:
         f"{app_cfg.source_path}/",
         f"{user_host}:{build_dir}/",
     ])
-    shell.run(["ssh", user_host, f"podman build -t {image} {build_dir}/"])
-    shell.run(["ssh", user_host, f"podman push {image}"])
+    shell.run(["ssh", user_host, "bash", "-lc", f"podman build -t {image} {build_dir}/"])
+    shell.run(["ssh", user_host, "bash", "-lc", f"podman push {image}"])
 
     if _has_migrator_stage(app_cfg.source_path):
         migrator_image = cfg.migrator_image(app_cfg)
-        shell.run(["ssh", user_host, f"podman build --target migrator -t {migrator_image} {build_dir}/"])
-        shell.run(["ssh", user_host, f"podman push {migrator_image}"])
+        shell.run(["ssh", user_host, "bash", "-lc", f"podman build --target migrator -t {migrator_image} {build_dir}/"])
+        shell.run(["ssh", user_host, "bash", "-lc", f"podman push {migrator_image}"])
 
-    shell.run(["ssh", user_host, f"rm -rf {build_dir}"])
+    shell.run(["ssh", user_host, "bash", "-lc", f"rm -rf {build_dir}"])
 
 
 @app.command("image")
