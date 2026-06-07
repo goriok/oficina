@@ -58,26 +58,16 @@ def _has_migrator_stage(source_path: str) -> bool:
 
 
 def _deploy_image(cfg: Config, app_cfg: AppConfig) -> None:
-    user_host = f"{cfg.cluster_user}@{cfg.cluster_host}"
     image = cfg.image(app_cfg)
-    build_dir = cfg.remote_build_dir(app_cfg)
-    excludes = [f"--exclude={e}" for e in app_cfg.rsync_excludes]
+    source = app_cfg.source_path
 
-    shell.run([
-        "rsync", "-az", "--delete",
-        *excludes,
-        f"{app_cfg.source_path}/",
-        f"{user_host}:{build_dir}/",
-    ])
-    shell.run(["ssh", user_host, "bash", "-lc", f"podman build -t {image} {build_dir}/"])
-    shell.run(["ssh", user_host, "bash", "-lc", f"podman push {image}"])
+    shell.run(["podman", "build", "-t", image, source])
+    shell.run(["podman", "push", image])
 
-    if _has_migrator_stage(app_cfg.source_path):
+    if _has_migrator_stage(source):
         migrator_image = cfg.migrator_image(app_cfg)
-        shell.run(["ssh", user_host, "bash", "-lc", f"podman build --target migrator -t {migrator_image} {build_dir}/"])
-        shell.run(["ssh", user_host, "bash", "-lc", f"podman push {migrator_image}"])
-
-    shell.run(["ssh", user_host, "bash", "-lc", f"rm -rf {build_dir}"])
+        shell.run(["podman", "build", "--target", "migrator", "-t", migrator_image, source])
+        shell.run(["podman", "push", migrator_image])
 
 
 @app.command("image")
