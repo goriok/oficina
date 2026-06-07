@@ -115,9 +115,9 @@ spec:
           startupProbe:
             tcpSocket:
               port: 8001
-            initialDelaySeconds: 2
-            periodSeconds: 3
-            failureThreshold: 10
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 20
       volumes:
         - name: digests
           persistentVolumeClaim:
