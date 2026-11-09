@@ -75,12 +75,56 @@ def test_deploy_all_calls_image_then_cluster():
          patch("mcx.commands.deploy.subprocess.run", side_effect=_mock_subprocess()) as mock_run:
         result = runner.invoke(app, ["deploy", "all", "distill-rss", "--yes"])
     assert result.exit_code == 0
-    # 4 image steps via shell.run
-    assert len(mock_shell.run.call_args_list) == 4
+    # build + push via shell.run, and no rollout restart unless the app asks for it
+    assert len(mock_shell.run.call_args_list) == 2
     # kustomize build + kubectl apply via subprocess.run
     calls = mock_run.call_args_list
     assert _cmd_args(calls[0]) == ["kustomize", "build", str(FAKE_ROOT / "k8s/apps/distill-rss"), "--enable-helm"]
     assert _cmd_args(calls[1]) == ["kubectl", "apply", "-f", "-"]
+
+
+RESTART_CFG = Config(
+    cluster_host="vps.test",
+    cluster_user="bob",
+    registry="registry.test/my-registry",
+    apps=[AppConfig("family-hyle", "../hyle", "k8s/apps/family-hyle", restart=True)],
+)
+
+
+def test_deploy_all_restarts_and_waits_for_the_rollout_after_the_apply():
+    order = []
+    with patch("mcx.commands.deploy.get_config", return_value=RESTART_CFG), \
+         patch("mcx.commands.deploy.get_repo_root", return_value=FAKE_ROOT), \
+         patch("mcx.commands.deploy.os.path.isdir", return_value=False), \
+         patch("mcx.commands.deploy.shell") as mock_shell, \
+         patch("mcx.commands.deploy.subprocess.run", side_effect=_mock_subprocess()) as mock_run:
+        mock_shell.run.side_effect = lambda argv, **kw: order.append(("shell", list(argv)))
+        mock_run.side_effect = lambda argv, **kw: (order.append(("sub", list(argv))), MagicMock(returncode=0, stdout=b""))[1]
+        result = runner.invoke(app, ["deploy", "all", "family-hyle", "--yes"])
+    assert result.exit_code == 0
+    kinds = [argv[1] if kind == "shell" else argv[0] for kind, argv in order]
+    assert [k for k in kinds if k in ("build", "push", "rollout")] == ["build", "push", "rollout", "rollout"]
+    assert order[-2][1] == ["kubectl", "rollout", "restart", "deploy/family-hyle", "-n", "family-hyle"]
+    assert order[-1][1] == ["kubectl", "rollout", "status", "deploy/family-hyle", "-n", "family-hyle", "--timeout=180s"]
+    assert any(argv[:2] == ["kubectl", "apply"] for kind, argv in order[:-2])
+
+
+def test_deploy_restart_restarts_and_waits_for_the_rollout():
+    with patch("mcx.commands.deploy.get_config", return_value=RESTART_CFG), \
+         patch("mcx.commands.deploy.shell") as mock_shell:
+        result = runner.invoke(app, ["deploy", "restart", "family-hyle", "--yes"])
+    assert result.exit_code == 0
+    assert [c.args[0] for c in mock_shell.run.call_args_list] == [
+        ["kubectl", "rollout", "restart", "deploy/family-hyle", "-n", "family-hyle"],
+        ["kubectl", "rollout", "status", "deploy/family-hyle", "-n", "family-hyle", "--timeout=180s"],
+    ]
+
+
+def test_deploy_restart_without_yes_does_nothing_when_declined():
+    with patch("mcx.commands.deploy.get_config", return_value=RESTART_CFG), \
+         patch("mcx.commands.deploy.shell") as mock_shell:
+        runner.invoke(app, ["deploy", "restart", "family-hyle"], input="n\n")
+    mock_shell.run.assert_not_called()
 
 
 # ── cluster setup ────────────────────────────────────────────────────────────

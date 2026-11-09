@@ -1,6 +1,7 @@
 [cluster]
 # registry reachable at localhost:5000 from inside the VPS
 registry = "container-registry.br-se1.magalu.cloud/my-registry"
+platform = "linux/amd64"
 
 [[apps]]
 name = "distill-rss"
@@ -85,6 +86,7 @@ rsync_excludes = [
 name = "family-hyle"
 source_path = "../hyle"
 kustomize_path = "k8s/apps/family-hyle"
+restart = true
 rsync_excludes = [
   ".git/",
   ".jj/",

@@ -18,6 +18,7 @@ class AppConfig:
     source_path: str
     kustomize_path: str = ""
     rsync_excludes: list[str] = field(default_factory=list)
+    restart: bool = False
 
 
 @dataclass
@@ -26,6 +27,7 @@ class Config:
     cluster_user: str
     apps: list[AppConfig]
     registry: str = "localhost:5000"
+    platform: str = "linux/amd64"
 
     def app(self, name: str) -> AppConfig:
         for a in self.apps:
@@ -70,15 +72,17 @@ def load_config(repo_root: Path, _environ: dict | None = None) -> Config:
             source_path=a["source_path"],
             kustomize_path=a.get("kustomize_path", ""),
             rsync_excludes=a.get("rsync_excludes", []),
+            restart=a.get("restart", False),
         )
         for a in data.get("apps", [])
     ]
 
-    registry = data.get("cluster", {}).get("registry", "localhost:5000")
+    cluster = data.get("cluster", {})
 
     return Config(
         cluster_host=cluster_host,
         cluster_user=cluster_user,
         apps=apps,
-        registry=registry,
+        registry=cluster.get("registry", "localhost:5000"),
+        platform=cluster.get("platform", "linux/amd64"),
     )

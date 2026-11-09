@@ -174,12 +174,12 @@ O bot faz polling: só tem tráfego de saída (Telegram e Anthropic), então nã
 
 As conversas ficam em `/data/sessions` num PVC (`family-hyle-data`, 1Gi), com permissão `0600`. A chave do modelo é a da Anthropic (`CL_API_KEY`), sem passar pelo LiteLLM.
 
-## Secrets
+## Primeira vez (uma só vez)
 
-Os valores vêm de variáveis de ambiente do terminal, para não ficarem no histórico do shell.
+Namespace e secrets. Os valores vêm de variáveis de ambiente do terminal, para não ficarem no histórico do shell.
 
 ```bash
-kubectl create namespace family-hyle   # se ainda não existir; o apply do kustomize também cria
+kubectl apply -f k8s/apps/family-hyle/namespace.yaml   # namespace com as labels do tenant
 
 kubectl create secret docker-registry mgc-registry-credentials \
   --docker-server=container-registry.br-se1.magalu.cloud \
@@ -194,15 +194,24 @@ kubectl create secret generic family-hyle-secret \
   --from-literal=TELEGRAM_ALLOWED_IDS="$TELEGRAM_ALLOWED_IDS"
 ```
 
-`TELEGRAM_ALLOWED_IDS` é uma lista de ids numéricos separados por vírgula. Com a lista vazia o bot ignora todos e só registra os ids no log. Para mudar a lista: recriar o secret e `kubectl rollout restart deploy/family-hyle -n family-hyle`.
+`TELEGRAM_ALLOWED_IDS` é uma lista de ids numéricos separados por vírgula. Com a lista vazia o bot ignora todos e só registra os ids no log. Para mudar a lista: recriar o secret e rodar `mcx deploy restart family-hyle`.
 
-## Deploy
+## Atualizar o agent
+
+Um comando:
 
 ```bash
-mcx deploy image family-hyle     # build com podman e push para o registry
-kubectl diff -k k8s/             # revisar antes de aplicar
-mcx deploy cluster --yes         # kubectl apply -k k8s/
-mcx logs app family-hyle         # esperar "hyle telegram: @<bot>" no log
+mcx deploy all family-hyle --yes
+```
+
+Ele constrói a imagem para o `platform` do `mcx.toml` (`linux/amd64`, a arquitetura dos nós, mesmo num Mac Apple Silicon), envia ao registry, aplica os manifests e, como o app tem `restart = true`, reinicia o Deployment e espera o rollout terminar. O reinício é necessário porque a imagem usa a tag `:latest`: aplicar o mesmo manifesto não troca o pod sozinho.
+
+Depois:
+
+```bash
+kubectl diff -k k8s/apps/family-hyle   # antes de aplicar, para revisar mudanças nos manifestos
+mcx logs app family-hyle               # esperar "hyle telegram: @<bot>" no log
+mcx deploy restart family-hyle         # só reinicia, por exemplo depois de recriar o secret
 ```
 
 Antes do primeiro deploy, pare qualquer outro processo que use o mesmo token, local ou em outra máquina: só um pode fazer polling.

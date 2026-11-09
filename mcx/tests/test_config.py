@@ -81,6 +81,33 @@ def test_image_name(repo_root, env_file, mcx_toml):
     assert cfg.image(app) == "localhost:5000/distill-rss:latest"
 
 
+def test_platform_defaults_to_linux_amd64(repo_root, env_file, mcx_toml):
+    cfg = load_config(repo_root, _environ=CLEAN_ENV)
+    assert cfg.platform == "linux/amd64"
+
+
+def test_platform_can_be_overridden_in_the_cluster_table(repo_root, env_file):
+    (repo_root / "mcx.toml").write_text('[cluster]\nplatform = "linux/arm64"\n')
+    cfg = load_config(repo_root, _environ=CLEAN_ENV)
+    assert cfg.platform == "linux/arm64"
+
+
+def test_app_restart_defaults_to_false_and_can_be_enabled(repo_root, env_file):
+    (repo_root / "mcx.toml").write_text(textwrap.dedent("""\
+        [[apps]]
+        name = "plain"
+        source_path = "../plain"
+
+        [[apps]]
+        name = "agent"
+        source_path = "../agent"
+        restart = true
+    """))
+    cfg = load_config(repo_root, _environ=CLEAN_ENV)
+    assert cfg.app("plain").restart is False
+    assert cfg.app("agent").restart is True
+
+
 def test_remote_build_dir(repo_root, env_file, mcx_toml):
     cfg = load_config(repo_root, _environ=CLEAN_ENV)
     app = cfg.app("taberna")

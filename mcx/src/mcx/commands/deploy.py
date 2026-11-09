@@ -61,13 +61,19 @@ def _deploy_image(cfg: Config, app_cfg: AppConfig) -> None:
     image = cfg.image(app_cfg)
     source = app_cfg.source_path
 
-    shell.run(["podman", "build", "-t", image, source])
+    shell.run(["podman", "build", "--platform", cfg.platform, "-t", image, source])
     shell.run(["podman", "push", image])
 
     if _has_migrator_stage(source):
         migrator_image = cfg.migrator_image(app_cfg)
-        shell.run(["podman", "build", "--target", "migrator", "-t", migrator_image, source])
+        shell.run(["podman", "build", "--platform", cfg.platform, "--target", "migrator", "-t", migrator_image, source])
         shell.run(["podman", "push", migrator_image])
+
+
+def _rollout_restart(app_cfg: AppConfig) -> None:
+    target = f"deploy/{app_cfg.name}"
+    shell.run(["kubectl", "rollout", "restart", target, "-n", app_cfg.name])
+    shell.run(["kubectl", "rollout", "status", target, "-n", app_cfg.name, "--timeout=180s"])
 
 
 @app.command("image")
@@ -127,3 +133,24 @@ def all_(
         if not typer.confirm("Proceed?"):
             raise typer.Abort()
     _kustomize_apply(app_cfg.kustomize_path)
+    if app_cfg.restart:
+        _rollout_restart(app_cfg)
+
+
+@app.command("restart")
+def restart(
+    app_name: str = typer.Argument(..., help="App name"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation"),
+):
+    """Restart an app's deployment and wait for the rollout (e.g. after changing its secret)."""
+    cfg = get_config()
+    try:
+        app_cfg = cfg.app(app_name)
+    except ConfigError as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+    if not yes:
+        console.print(f"[yellow]Will run:[/yellow] kubectl rollout restart deploy/{app_cfg.name} -n {app_cfg.name}")
+        if not typer.confirm("Proceed?"):
+            raise typer.Abort()
+    _rollout_restart(app_cfg)
