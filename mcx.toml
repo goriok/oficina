@@ -1,5 +1,5 @@
 [cluster]
-# registry reachable at localhost:5000 from inside the VPS
+# registry: Magalu Cloud container registry
 registry = "container-registry.br-se1.magalu.cloud/my-registry"
 platform = "linux/amd64"
 

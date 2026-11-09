@@ -33,7 +33,7 @@ def test_deploy_image_builds_for_the_cluster_platform():
     result, mock_shell = invoke_deploy_image("distill-rss")
     build_call = mock_shell.run.call_args_list[0].args[0]
     assert build_call == [
-        "podman", "build", "--platform", "linux/amd64",
+        "podman", "build", "--no-cache", "--platform", "linux/amd64",
         "-t", "registry.test/my-registry/distill-rss:latest",
         "../distill-rss",
     ]
@@ -49,7 +49,7 @@ def test_deploy_image_uses_the_configured_platform():
     )
     result, mock_shell = invoke_deploy_image("taberna", cfg)
     build_call = mock_shell.run.call_args_list[0].args[0]
-    assert build_call[2:4] == ["--platform", "linux/arm64"]
+    assert build_call[3:5] == ["--platform", "linux/arm64"]
 
 
 def test_deploy_image_pushes_the_built_image():

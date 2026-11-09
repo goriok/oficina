@@ -61,12 +61,12 @@ def _deploy_image(cfg: Config, app_cfg: AppConfig) -> None:
     image = cfg.image(app_cfg)
     source = app_cfg.source_path
 
-    shell.run(["podman", "build", "--platform", cfg.platform, "-t", image, source])
+    shell.run(["podman", "build", "--no-cache", "--platform", cfg.platform, "-t", image, source])
     shell.run(["podman", "push", image])
 
     if _has_migrator_stage(source):
         migrator_image = cfg.migrator_image(app_cfg)
-        shell.run(["podman", "build", "--platform", cfg.platform, "--target", "migrator", "-t", migrator_image, source])
+        shell.run(["podman", "build", "--no-cache", "--platform", cfg.platform, "--target", "migrator", "-t", migrator_image, source])
         shell.run(["podman", "push", migrator_image])
 
 
