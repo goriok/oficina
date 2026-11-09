@@ -163,3 +163,53 @@ kubectl create secret generic mcx-companion-secret \
   --from-literal=LITELLM_BASE_URL="http://litellm.litellm.svc.cluster.local/v1" \
   --from-literal=MODEL="deepseek-v4-flash"
 ```
+
+---
+
+# Agents — hyle (`family-hyle`)
+
+Agent de conversa pelo Telegram para a família. Tenant `family`, namespace `family-hyle`, manifests em `k8s/apps/family-hyle/`.
+
+O bot faz polling: só tem tráfego de saída (Telegram e Anthropic), então não há Service nem Ingress. O Telegram entrega as atualizações de um token a um único consumidor, por isso o Deployment tem `replicas: 1` e `strategy: Recreate`. Mais agents entram como apps separados, cada um com o seu token.
+
+As conversas ficam em `/data/sessions` num PVC (`family-hyle-data`, 1Gi), com permissão `0600`. A chave do modelo é a da Anthropic (`CL_API_KEY`), sem passar pelo LiteLLM.
+
+## Secrets
+
+Os valores vêm de variáveis de ambiente do terminal, para não ficarem no histórico do shell.
+
+```bash
+kubectl create namespace family-hyle   # se ainda não existir; o apply do kustomize também cria
+
+kubectl create secret docker-registry mgc-registry-credentials \
+  --docker-server=container-registry.br-se1.magalu.cloud \
+  --docker-username="$MGC_USER" \
+  --docker-password="$MGC_TOKEN" \
+  --namespace family-hyle
+
+kubectl create secret generic family-hyle-secret \
+  --namespace family-hyle \
+  --from-literal=CL_API_KEY="$CL_API_KEY" \
+  --from-literal=TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
+  --from-literal=TELEGRAM_ALLOWED_IDS="$TELEGRAM_ALLOWED_IDS"
+```
+
+`TELEGRAM_ALLOWED_IDS` é uma lista de ids numéricos separados por vírgula. Com a lista vazia o bot ignora todos e só registra os ids no log. Para mudar a lista: recriar o secret e `kubectl rollout restart deploy/family-hyle -n family-hyle`.
+
+## Deploy
+
+```bash
+mcx deploy image family-hyle     # build com podman e push para o registry
+kubectl diff -k k8s/             # revisar antes de aplicar
+mcx deploy cluster --yes         # kubectl apply -k k8s/
+mcx logs app family-hyle         # esperar "hyle telegram: @<bot>" no log
+```
+
+Antes do primeiro deploy, pare qualquer outro processo que use o mesmo token, local ou em outra máquina: só um pode fazer polling.
+
+## Limitações conhecidas
+
+- Sem probes: não há porta HTTP, então um travamento do polling só é detectado quando o processo cai.
+- Sem backup das conversas. O padrão restic do `docs/rfc-backup.md` ainda não foi aplicado.
+- O estado está em arquivos num PVC, enquanto a plataforma prefere apps sem estado sobre o Postgres compartilhado. O armazenamento é uma interface (`TurnStore`) e pode ganhar uma implementação em Postgres.
+- Não há limite de gasto por pessoa além da allowlist.

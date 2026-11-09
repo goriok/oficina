@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: family-hyle
+  namespace: family-hyle
+  labels:
+    app: family-hyle
+    platform.oficina/tenant: family
+    platform.oficina/app: hyle
+    platform.oficina/owner: igorsoaresalves@gmail.com
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: family-hyle
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: family-hyle
+        platform.oficina/tenant: family
+        platform.oficina/app: hyle
+        platform.oficina/owner: igorsoaresalves@gmail.com
+    spec:
+      imagePullSecrets:
+        - name: mgc-registry-credentials
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: tier
+                    operator: In
+                    values:
+                      - standard
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: family-hyle
+          image: container-registry.br-se1.magalu.cloud/my-registry/family-hyle:latest
+          imagePullPolicy: Always
+          env:
+            - name: CL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: family-hyle-secret
+                  key: CL_API_KEY
+            - name: TELEGRAM_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: family-hyle-secret
+                  key: TELEGRAM_BOT_TOKEN
+            - name: TELEGRAM_ALLOWED_IDS
+              valueFrom:
+                secretKeyRef:
+                  name: family-hyle-secret
+                  key: TELEGRAM_ALLOWED_IDS
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "384Mi"
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: family-hyle-data
+        - name: tmp
+          emptyDir: {}

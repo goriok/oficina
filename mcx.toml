@@ -81,3 +81,16 @@ rsync_excludes = [
   "*.db",
 ]
 
+[[apps]]
+name = "family-hyle"
+source_path = "../hyle"
+kustomize_path = "k8s/apps/family-hyle"
+rsync_excludes = [
+  ".git/",
+  ".jj/",
+  ".claude/",
+  "node_modules/",
+  "dist/",
+  ".env*",
+]
+
