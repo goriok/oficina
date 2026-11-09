@@ -6,7 +6,7 @@ metadata:
   labels:
     platform.oficina/tenant: family
     platform.oficina/app: hyle
-    platform.oficina/owner: igorsoaresalves@gmail.com
+    platform.oficina/owner: igorsoaresalves
 spec:
   accessModes:
     - ReadWriteOnce
