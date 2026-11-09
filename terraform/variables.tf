@@ -19,3 +19,9 @@ variable "ssh_public_key" {
   description = "Conteúdo da chave SSH pública do operador"
   type        = string
 }
+
+variable "enable_essential" {
+  description = "Cria o agent do tier essential e o volume do Postgres. Desligado, o cluster tem só server e agent-standard."
+  type        = bool
+  default     = false
+}

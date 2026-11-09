@@ -11,7 +11,7 @@ output "server_private_ip" {
 output "agent_public_ips" {
   description = "IPs públicos dos agents"
   value = {
-    essential = mgc_virtual_machine_instances.agent_essential.ipv4
+    essential = try(mgc_virtual_machine_instances.agent_essential[0].ipv4, null)
     standard  = mgc_virtual_machine_instances.agent_standard.ipv4
   }
 }

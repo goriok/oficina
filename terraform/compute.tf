@@ -26,6 +26,7 @@ resource "mgc_virtual_machine_instances" "server" {
 
 # agent-essencial: prevent_destroy=true porque tem o volume do postgres anexado
 resource "mgc_virtual_machine_instances" "agent_essential" {
+  count                = var.enable_essential ? 1 : 0
   name                 = "oficina-agent-essential"
   machine_type         = "BV2-4-40"
   image                = "cloud-ubuntu-24.04 LTS"
