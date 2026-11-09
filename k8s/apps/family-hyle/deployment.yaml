@@ -62,6 +62,8 @@ spec:
                 secretKeyRef:
                   name: family-hyle-secret
                   key: TELEGRAM_ALLOWED_IDS
+            - name: HYLE_HOURLY_TOKENS
+              value: "200000"
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
