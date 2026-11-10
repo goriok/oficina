@@ -1,0 +1,142 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: family-hyle-backup
+  namespace: family-hyle
+  labels:
+    app: family-hyle
+    role: backup
+    platform.oficina/tenant: family
+    platform.oficina/app: hyle
+    platform.oficina/owner: igorsoaresalves
+spec:
+  # Suspenso até existir o secret backup-credentials (ver docs/agents.md).
+  suspend: true
+  # 03:30 UTC: depois do snapshot diario que o proprio app mantem em /data/backups
+  schedule: "30 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # Uma falha deve alertar, nao repetir em silencio
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            app: family-hyle
+            role: backup
+            platform.oficina/tenant: family
+            platform.oficina/app: hyle
+            platform.oficina/owner: igorsoaresalves
+        spec:
+          restartPolicy: Never
+          serviceAccountName: family-hyle-backup
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          # O volume e local-path (RWO): o job precisa cair no no do pod do app.
+          affinity:
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - topologyKey: kubernetes.io/hostname
+                  labelSelector:
+                    matchExpressions:
+                      - key: app
+                        operator: In
+                        values:
+                          - family-hyle
+                      - key: role
+                        operator: DoesNotExist
+          containers:
+            - name: backup
+              image: restic/restic:0.19.1
+              command:
+                - /bin/sh
+                - -euc
+                - |
+                  # Cria o repositorio na primeira execucao. Com credenciais erradas os dois comandos falham.
+                  restic snapshots >/dev/null 2>&1 || restic init
+
+                  # /data/backups: copias consistentes do SQLite feitas pelo app (VACUUM INTO).
+                  # /data/sessions: historico das conversas (arquivos comuns).
+                  # O banco vivo (finance.db e arquivos -wal/-shm) nao entra: so as copias.
+                  restic backup /data/backups /data/sessions --tag family-hyle
+
+                  restic forget \
+                    --keep-daily 7 \
+                    --keep-weekly 4 \
+                    --keep-monthly 6 \
+                    --prune \
+                    --tag family-hyle
+
+                  echo "Backup complete."
+
+                  # Sinal de vida para o Healthchecks.io (opcional). Use a URL http:// do ping.
+                  if [ -n "${HEALTHCHECK_URL:-}" ]; then
+                    wget -qO- "${HEALTHCHECK_URL}" >/dev/null || echo "ping do healthchecks falhou"
+                  fi
+              env:
+                - name: RESTIC_CACHE_DIR
+                  value: /tmp/restic-cache
+                - name: TMPDIR
+                  value: /tmp
+                - name: AWS_DEFAULT_REGION
+                  value: auto
+                - name: RESTIC_REPOSITORY
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-credentials
+                      key: RESTIC_REPOSITORY
+                - name: RESTIC_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-credentials
+                      key: RESTIC_PASSWORD
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-credentials
+                      key: AWS_ACCESS_KEY_ID
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-credentials
+                      key: AWS_SECRET_ACCESS_KEY
+                - name: HEALTHCHECK_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-credentials
+                      key: HEALTHCHECK_URL
+                      optional: true
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "64Mi"
+                limits:
+                  cpu: "500m"
+                  memory: "256Mi"
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: family-hyle-data
+                readOnly: true
+            - name: tmp
+              emptyDir: {}

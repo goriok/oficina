@@ -216,9 +216,43 @@ mcx deploy restart family-hyle         # só reinicia, por exemplo depois de rec
 
 Antes do primeiro deploy, pare qualquer outro processo que use o mesmo token, local ou em outra máquina: só um pode fazer polling.
 
+## Backup
+
+Há duas camadas.
+
+**Dentro do volume (já ativa).** O próprio app mantém cópias consistentes do banco (`VACUUM INTO`) em `/data/backups`:
+
+- Pelo menos uma por dia, checada de hora em hora, com retenção das 14 mais recentes (`HYLE_BACKUPS_KEEP`).
+- Uma cópia extra, rotulada `pre-vN-to-vM`, antes de qualquer migração de esquema. Se a cópia falhar, o app não migra e não sobe.
+- No Telegram, `/backup` mostra quantas cópias existem e `/backup agora` cria uma na hora.
+
+Protege contra erro de migração, importação errada e corrupção. **Não protege se o volume ou o nó se perderem.**
+
+**Fora do volume (CronJob `family-hyle-backup`, suspenso).** Roda `restic` para o R2 todo dia às 03:30 UTC, com criptografia no cliente, e copia `/data/backups` e `/data/sessions` (as conversas). O job lê o volume em modo somente leitura e é forçado a rodar no mesmo nó do pod do app, porque o volume é `local-path`. Ele só funciona depois de criar o secret:
+
+```bash
+kubectl -n family-hyle create secret generic backup-credentials \
+  --from-literal=RESTIC_REPOSITORY="s3:https://<conta>.r2.cloudflarestorage.com/<bucket>/family/hyle" \
+  --from-literal=RESTIC_PASSWORD="<senha do restic>" \
+  --from-literal=AWS_ACCESS_KEY_ID="<id>" \
+  --from-literal=AWS_SECRET_ACCESS_KEY="<segredo>" \
+  --from-literal=HEALTHCHECK_URL="http://hc-ping.com/<uuid>"   # opcional
+
+kubectl -n family-hyle patch cronjob family-hyle-backup -p '{"spec":{"suspend":false}}'
+kubectl -n family-hyle create job --from=cronjob/family-hyle-backup family-hyle-backup-teste
+kubectl -n family-hyle logs -f job/family-hyle-backup-teste
+```
+
+Guarde a senha do restic fora do cluster: sem ela não há restauração. Use uma URL `http://` no Healthchecks, porque o `wget` da imagem não faz HTTPS.
+
+### Restaurar
+
+- **De uma cópia do volume:** pare o app (`kubectl -n family-hyle scale deploy/family-hyle --replicas=0`), copie `/data/backups/<cópia>.db` sobre `/data/finance.db` (apague `finance.db-wal` e `finance.db-shm`), mantenha o dono `1000` e o modo `600`, e suba de novo.
+- **Do R2:** em qualquer máquina com `restic` e as credenciais, `restic restore latest --tag family-hyle --target /tmp/restore`, e depois use a cópia mais recente de `backups/` como acima.
+
 ## Limitações conhecidas
 
 - Sem probes: não há porta HTTP, então um travamento do polling só é detectado quando o processo cai.
-- Sem backup das conversas. O padrão restic do `docs/rfc-backup.md` ainda não foi aplicado.
+- O backup fora do volume só passa a existir depois que o secret `backup-credentials` for criado e o CronJob for reativado (seção Backup). Até lá, as cópias ficam no mesmo volume do banco.
 - O estado está em arquivos num PVC, enquanto a plataforma prefere apps sem estado sobre o Postgres compartilhado. O armazenamento é uma interface (`TurnStore`) e pode ganhar uma implementação em Postgres.
-- Não há limite de gasto por pessoa além da allowlist.
+- O limite de gasto é em tokens por hora por pessoa (`HYLE_HOURLY_TOKENS`, hoje 200000), não em reais.
