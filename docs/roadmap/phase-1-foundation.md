@@ -51,7 +51,7 @@ Apps já no padrão correto: `vaultwarden` (personal), `distill-rss` (personal),
 labels:
   platform.oficina/tenant: personal   # ou shared, family, work, sandbox
   platform.oficina/app: companions
-  platform.oficina/owner: igorsoaresalves@gmail.com
+  platform.oficina/owner: igorsoaresalves
 ```
 
 **Critério de conclusão:** `kubectl get pods -A -L platform.oficina/tenant` mostra a coluna preenchida para todos os pods de tenant.

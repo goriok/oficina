@@ -105,7 +105,7 @@ metadata:
   labels:
     platform.oficina/tenant: personal   # personal|family|work|shared|sandbox
     platform.oficina/app: vaultwarden
-    platform.oficina/owner: igorsoaresalves@gmail.com
+    platform.oficina/owner: igorsoaresalves
 ```
 
 O prefixo `platform.oficina/` segue a convenção `<domain>/<key>` recomendada pela documentação oficial do Kubernetes para labels de aplicação.

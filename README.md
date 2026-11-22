@@ -25,7 +25,7 @@ Every resource must carry three labels identifying its tenant, app, and owner:
 labels:
   platform.oficina/tenant: personal
   platform.oficina/app: vaultwarden
-  platform.oficina/owner: igorsoaresalves@gmail.com
+  platform.oficina/owner: igorsoaresalves
 ```
 
 See [`docs/concepts/01-multi-tenancy-em-kubernetes.md`](docs/concepts/01-multi-tenancy-em-kubernetes.md) for the full multi-tenancy model, [`docs/madr/`](docs/madr/) for architectural decisions, and [`CONTRIBUTING.md`](CONTRIBUTING.md) for onboarding workflows.

@@ -21,7 +21,7 @@ Apps candidatas mencionadas: Jellyfin (streaming de mídia), Nextcloud (armazena
 **O que fazer:** Antes de criar qualquer app, executar o checklist do CONTRIBUTING.md para registrar o tenant:
 
 1. Confirmar Access Group `tenant-family` criado (Fase 2, item 2.1)
-2. Definir o owner do tenant — email do familiar responsável para `platform.oficina/owner`
+2. Definir o owner do tenant — identificador do familiar responsável (sem `@`, pois valor de label não aceita) para `platform.oficina/owner`
 3. Documentar os membros do grupo `tenant-family` no Cloudflare (nomes + emails)
 4. Confirmar que o R2 bucket aceita o prefixo `family/` (nenhuma ação técnica — só validar)
 
@@ -59,7 +59,7 @@ metadata:
   labels:
     platform.oficina/tenant: family
     platform.oficina/app: jellyfin
-    platform.oficina/owner: familiar@example.com
+    platform.oficina/owner: familiar
 ```
 
 **Hostname:** `jellyfin.family.goriok.com` (padrão `<app>.<tenant>.goriok.com` — MADR-0006 Sub-A aprovado)

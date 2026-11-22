@@ -68,7 +68,7 @@ metadata:
   labels:
     platform.oficina/tenant: personal
     platform.oficina/app: vaultwarden
-    platform.oficina/owner: igorsoaresalves@gmail.com
+    platform.oficina/owner: igorsoaresalves
 ```
 
 ---
